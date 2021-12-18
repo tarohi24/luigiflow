@@ -22,8 +22,9 @@ from mlflow.protos.service_pb2 import ACTIVE_ONLY
 from tqdm.auto import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
+from luigiflow.serializer import MlflowTagSerializer, default_serializer, MlflowTagValue
+
 T = TypeVar("T")
-MlflowTagValue = Union[str, int, float]
 
 
 class MlflowTask(luigi.Task):
@@ -45,6 +46,14 @@ class MlflowTask(luigi.Task):
         """
         raise NotImplementedError()
 
+    @classmethod
+    def get_tag_serializer(cls) -> MlflowTagSerializer:
+        """
+        You normally don't need to override this method.
+        :return:
+        """
+        return default_serializer
+
     # just to note types
     def input(self) -> Dict[str, Dict[str, LocalTarget]]:
         return super(MlflowTask, self).input()
@@ -55,14 +64,26 @@ class MlflowTask(luigi.Task):
         """
         raise NotImplementedError()
 
+    def _get_all_parameter_values(self) -> Dict[str, MlflowTagValue]:
+        params: Dict[str, MlflowTagValue] = dict()
+        for name, param_obj in self.get_params():
+            params[name] = param_obj.serialize(getattr(self, name))
+
+        return params
+
     def to_mlflow_tags(self) -> Dict[str, MlflowTagValue]:
         """
         Serialize parameters of this task.
+        By default, this method serialize all the parameters.
 
         *Difference from metrics*: A metric is the *result* (calculated after the task is complete),
         whereas tags can be determined before running the task.
         """
-        raise NotImplementedError()
+        serializer = self.get_tag_serializer()
+        return {
+            name: serializer.serialize(getattr(self, name))
+            for name in self.get_param_names()
+        }
 
     def _run(self) -> NoReturn:
         """
@@ -137,35 +158,7 @@ class MlflowTask(luigi.Task):
         Then this method returns the following tags.
 
         ```python
-        >>> class TaskA(MlflowTask):
-        >>>     param_1: int = luigi.IntParameter(default=10)
-        >>>     def requires(self): return dict()
-        >>>     def to_mlflow_tags(self): return {"param_1": self.param_1}
-        >>>     def _run(self): ...
-        >>>
-        >>> class TaskB(MlflowTask):
-        >>>     message: str = luigi.Parameter(default='hi')
-        >>>     def requires(self): return dict()
-        >>>     def to_mlflow_tags(self): return {"message": self.message}
-        >>>     def _run(self): ...
-        >>>
-        >>> class TaskC(MlflowTask):
-        >>>     def requires(self): return {"bbb": TaskB()}
-        >>>     def to_mlflow_tags(self): return dict()
-        >>>     def _run(self): ...
-        >>>
-        >>> class TaskD(MlflowTask):
-        >>>     threshold: float = luigi.FloatParameter(default=2e+3)
-        >>>     def requires(self): return {'aaa': TaskA(), 'ccc': TaskC()}
-        >>>     def to_mlflow_tags(self): return {"threshold": self.threshold}
-        >>>     def _run(self): ...
-        >>>
-        >>> task = TaskD()
-        >>> task.to_mlflow_tags_w_parent_tags()
-        {
-            "aaa.param_1": 100,
-            "ccc.bbb.message": "hi",
-            "threshold": 2e+3,
+hreshold": 2e+3,
         }
         ```
         """
