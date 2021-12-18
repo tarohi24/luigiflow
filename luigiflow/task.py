@@ -1,12 +1,16 @@
-from abc import ABC
+import logging
+import os
+import tempfile
 from pathlib import Path
-from typing import Dict, Any, Optional, final, TypeVar, Union
+from typing import Dict, Optional, final, TypeVar, Union, NoReturn, Tuple, Callable, List
 
 import luigi
 import mlflow
 from luigi import LocalTarget
 from mlflow.entities import Run
 from mlflow.protos.service_pb2 import ACTIVE_ONLY
+from tqdm.auto import tqdm
+from tqdm.contrib.logging import logging_redirect_tqdm
 
 T = TypeVar("T")
 MlflowTagValue = Union[str, int, float]
@@ -17,9 +21,19 @@ class MlflowTask(luigi.Task):
     This is a luigi's task aiming to save artifacts and/or metrics to an mllfow expriment.
     """
 
-    class Meta(ABC):
-        mlflow_experiment_name = None
-        mlflow_artifact_fnames = dict()
+    @classmethod
+    def get_experiment_name(cls) -> str:
+        """
+        :return: name of the mlflow experiment corresponding to this task.
+        """
+        raise NotImplementedError()
+
+    @classmethod
+    def get_artifact_filenames(cls) -> Dict[str, str]:
+        """
+        :return: `{file_id: filename w/ an extension}`. `file_id` is an ID used only in this task.
+        """
+        raise NotImplementedError()
 
     # just to note types
     def input(self) -> Dict[str, Dict[str, LocalTarget]]:
@@ -31,23 +45,25 @@ class MlflowTask(luigi.Task):
         """
         raise NotImplementedError()
 
-    def to_mlflow_tags(self) -> Dict[str, Any]:
+    def to_mlflow_tags(self) -> Dict[str, MlflowTagValue]:
         """
-        Difference from metrics: A metric is the *result* (calculated after the task is complete),
+        Serialize parameters of this task.
+
+        *Difference from metrics*: A metric is the *result* (calculated after the task is complete),
         whereas tags can be determined before running the task.
         """
         raise NotImplementedError()
 
-    def _run(self):
+    def _run(self) -> NoReturn:
         """
-        Specify a flow to save artifacts / metrics
+        Specify a flow to save artifacts / metrics.
         """
         raise NotImplementedError()
 
     @final
     def run(self):
         self.logger.info(f"Start {self.__class__.__name__}")
-        mlflow.set_experiment(self.Meta.mlflow_experiment_name)
+        mlflow.set_experiment(self.get_experiment_name())
         self.logger.info("Initialize done")
         self._run()
 
@@ -55,7 +71,7 @@ class MlflowTask(luigi.Task):
         """
         Search an existing run with the same tags.
         """
-        experiment = mlflow.get_experiment_by_name(self.Meta.mlflow_experiment_name)
+        experiment = mlflow.get_experiment_by_name(self.get_experiment_name())
         query_items = [
             f'tag.{pname} = "{pval}"'
             for pname, pval in self.to_mlflow_tags_w_parent_tags().items()
@@ -93,7 +109,7 @@ class MlflowTask(luigi.Task):
             return None
         paths = {
             key: Path(maybe_mlf_run.info.artifact_uri) / fname
-            for key, fname in self.Meta.mlflow_artifact_fnames.items()
+            for key, fname in self.get_artifact_filenames().items()
         }
         # logging
         return {key: LocalTarget(str(p)) for key, p in paths.items()}
@@ -144,7 +160,7 @@ class MlflowTask(luigi.Task):
         ```
         """
 
-        def to_tags(task: MlflowTask) -> Dict[str, Any]:
+        def to_tags(task: MlflowTask) -> Dict[str, MlflowTagValue]:
             tags = task.to_mlflow_tags()
             if task.requires() is None:
                 return tags
@@ -173,13 +189,20 @@ class MlflowTask(luigi.Task):
         Register artifacts and/or metrics to mlflow.
         """
         artifact_paths: List[str] = []
-        artifacts_and_save_funcs = artifacts_and_save_funcs or []
-        for name, (artifact, save_fn) in artifacts_and_save_funcs.items():
-            out_path = self.output()[name].path
-            self.logger.info(f"Saving artifact to {out_path}")
-            save_fn(artifact, out_path)
-            artifact_paths.append(out_path)
+        artifacts_and_save_funcs = artifacts_and_save_funcs or dict()
         with mlflow.start_run():
+            # Save artifacts
+            if len(artifacts_and_save_funcs) > 0:
+                # Save artifacts
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    for name, (artifact, save_fn) in artifacts_and_save_funcs.items():
+                        out_path = os.path.join(tmpdir, self.get_artifact_filenames()[name])
+                        self.logger.info(f"Saving artifact to {out_path}")
+                        save_fn(artifact, out_path)
+                        artifact_paths.append(out_path)
+                    for path in artifact_paths:
+                        mlflow.log_artifact(path)
+            # Save tags
             mlflow.set_tags(
                 (
                     self.to_mlflow_tags_w_parent_tags()
@@ -187,14 +210,13 @@ class MlflowTask(luigi.Task):
                     else self.to_mlflow_tags()
                 )
             )
+            # Save metrics
             if metrics is not None:
                 mlflow.log_metrics(metrics)
-            for path in artifact_paths:
-                mlflow.log_artifact(path)
 
     @property
     def logger(self):
-        return logging.getLogger(self.Meta.mlflow_experiment_name)
+        return logging.getLogger(self.get_experiment_name())
 
     def enable_tqdm(self):
         tqdm.pandas()
