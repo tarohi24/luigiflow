@@ -52,6 +52,7 @@ def test_to_mlflow_tags():
         param_str: str = luigi.Parameter(default="hi")
         param_bool: str = luigi.BoolParameter(default=True)
         param_date: datetime.date = luigi.DateParameter(default=datetime.date(2021, 1, 2))
+        param_large_value: float = luigi.FloatParameter(default=2e+11)
 
     task = Task()
     TestCase().assertDictEqual(task.to_mlflow_tags(), {
@@ -59,6 +60,7 @@ def test_to_mlflow_tags():
         "param_str": "hi",
         "param_bool": 1,
         "param_date": "2021-01-02",
+        "param_large_value": 200000000000.0,
     })
 
     class AnotherTask(Task):

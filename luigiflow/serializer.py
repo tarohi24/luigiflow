@@ -31,6 +31,7 @@ default_serializer: MlflowTagSerializer = MlflowTagSerializer(
     [
         (str, identical_function),
         (int, identical_function),
+        (float, identical_function),
         (bool, lambda b: int(b)),
         (datetime.date, lambda d: cast(datetime.date, d).isoformat()),
     ]
