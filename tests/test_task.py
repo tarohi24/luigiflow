@@ -60,6 +60,12 @@ def test_to_mlflow_tags():
         "param_date": "2021-01-02",
     })
 
+    class AnotherTask(Task):
+        strange_param = luigi.Parameter(default=Task())
+
+    with pytest.raises(TypeError):
+        AnotherTask().to_mlflow_tags()
+
 
 def test_to_tags():
 
