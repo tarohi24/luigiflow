@@ -2,7 +2,17 @@ import logging
 import os
 import tempfile
 from pathlib import Path
-from typing import Dict, Optional, final, TypeVar, Union, NoReturn, Tuple, Callable, List
+from typing import (
+    Callable,
+    Dict,
+    List,
+    NoReturn,
+    Optional,
+    Tuple,
+    TypeVar,
+    Union,
+    final,
+)
 
 import luigi
 import mlflow
@@ -196,7 +206,9 @@ class MlflowTask(luigi.Task):
                 # Save artifacts
                 with tempfile.TemporaryDirectory() as tmpdir:
                     for name, (artifact, save_fn) in artifacts_and_save_funcs.items():
-                        out_path = os.path.join(tmpdir, self.get_artifact_filenames()[name])
+                        out_path = os.path.join(
+                            tmpdir, self.get_artifact_filenames()[name]
+                        )
                         self.logger.info(f"Saving artifact to {out_path}")
                         save_fn(artifact, out_path)
                         artifact_paths.append(out_path)

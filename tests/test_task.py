@@ -3,7 +3,12 @@ import tempfile
 
 import pytest
 
-from luigiflow.testing import get_safe_port, is_windows, launch_mlflow_server, ArtifactsServer
+from luigiflow.testing import (
+    ArtifactsServer,
+    get_safe_port,
+    is_windows,
+    launch_mlflow_server,
+)
 
 LOCALHOST = "127.0.0.1"
 
@@ -25,7 +30,11 @@ def artifacts_server():
             uri_prefix + artifacts_destination,
         )
         yield ArtifactsServer(
-            backend_store_uri, default_artifact_root, artifacts_destination, url, process
+            backend_store_uri,
+            default_artifact_root,
+            artifacts_destination,
+            url,
+            process,
         )
         process.kill()
 
