@@ -12,6 +12,7 @@ mlflow = "^1.22.0"
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
 black = "^21.12b0"
+mypy = "^0.920"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
@@ -21,3 +22,6 @@ build-backend = "poetry.core.masonry.api"
 target-version = ['py36', 'py37', 'py38', 'py39']
 include = '\.pyi?$'
 extend-exclude = 'luigiflow/testing.py'
+
+[tool.mypy]
+ignore_missing_imports = true
