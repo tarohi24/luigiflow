@@ -8,7 +8,7 @@ from luigi import LocalTarget
 from mlflow.entities import Run
 from mlflow.protos.service_pb2 import ACTIVE_ONLY
 
-T = TypeVar('T')
+T = TypeVar("T")
 MlflowTagValue = Union[str, int, float]
 
 
@@ -46,9 +46,9 @@ class MlflowTask(luigi.Task):
 
     @final
     def run(self):
-        self.logger.info(f'Start {self.__class__.__name__}')
+        self.logger.info(f"Start {self.__class__.__name__}")
         mlflow.set_experiment(self.Meta.mlflow_experiment_name)
-        self.logger.info('Initialize done')
+        self.logger.info("Initialize done")
         self._run()
 
     def search_for_mlflow_run(self) -> Optional[Run]:
@@ -60,13 +60,15 @@ class MlflowTask(luigi.Task):
             f'tag.{pname} = "{pval}"'
             for pname, pval in self.to_mlflow_tags_w_parent_tags().items()
         ]
-        query = ' and '.join(query_items)
+        query = " and ".join(query_items)
         res = mlflow.search_runs(
-            experiment_ids=[experiment.experiment_id, ],
+            experiment_ids=[
+                experiment.experiment_id,
+            ],
             filter_string=query,
             max_results=1,
             run_view_type=ACTIVE_ONLY,
-            output_format='list',
+            output_format="list",
         )
         if len(res) > 0:
             return res[0]
@@ -77,8 +79,8 @@ class MlflowTask(luigi.Task):
         """
         A task's completion is determined by the existence of a run with the sampe tags in mlflow
         """
-        is_complete = (self.search_for_mlflow_run() is not None)
-        self.logger.info(f'is_complete: {is_complete}')
+        is_complete = self.search_for_mlflow_run() is not None
+        self.logger.info(f"is_complete: {is_complete}")
         return is_complete
 
     def output(self) -> Optional[Dict[str, LocalTarget]]:
@@ -94,10 +96,7 @@ class MlflowTask(luigi.Task):
             for key, fname in self.Meta.mlflow_artifact_fnames.items()
         }
         # logging
-        return {
-            key: LocalTarget(str(p))
-            for key, p in paths.items()
-        }
+        return {key: LocalTarget(str(p)) for key, p in paths.items()}
 
     @final
     def to_mlflow_tags_w_parent_tags(self) -> Dict[str, MlflowTagValue]:
@@ -156,8 +155,7 @@ class MlflowTask(luigi.Task):
             }
             for task_name, t in parent_tasks.items():
                 t_tags_w_prefix = {
-                    f'{task_name}.{key}': val
-                    for key, val in to_tags(t).items()
+                    f"{task_name}.{key}": val for key, val in to_tags(t).items()
                 }
                 tags = dict(**tags, **t_tags_w_prefix)
             return tags
@@ -178,7 +176,7 @@ class MlflowTask(luigi.Task):
         artifacts_and_save_funcs = artifacts_and_save_funcs or []
         for name, (artifact, save_fn) in artifacts_and_save_funcs.items():
             out_path = self.output()[name].path
-            self.logger.info(f'Saving artifact to {out_path}')
+            self.logger.info(f"Saving artifact to {out_path}")
             save_fn(artifact, out_path)
             artifact_paths.append(out_path)
         with mlflow.start_run():
@@ -200,4 +198,8 @@ class MlflowTask(luigi.Task):
 
     def enable_tqdm(self):
         tqdm.pandas()
-        return logging_redirect_tqdm(loggers=[self.logger, ])
+        return logging_redirect_tqdm(
+            loggers=[
+                self.logger,
+            ]
+        )
