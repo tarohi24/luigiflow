@@ -46,6 +46,7 @@ def artifacts_server():
 
 
 def test_to_mlflow_tags():
+
     class Task(MlflowTask):
         param_int: int = luigi.IntParameter(default=10)
         param_str: str = luigi.Parameter(default="hi")
@@ -65,6 +66,45 @@ def test_to_mlflow_tags():
 
     with pytest.raises(TypeError):
         AnotherTask().to_mlflow_tags()
+
+
+def test_to_tags_w_parents():
+
+    class TaskA(MlflowTask):
+        param: str = luigi.Parameter(default="hi")
+
+        def requires(self) -> Dict[str, luigi.Task]:
+            return dict()
+
+    class TaskB(MlflowTask):
+
+        def requires(self) -> Dict[str, luigi.Task]:
+            return {'aaa': TaskA()}
+
+    class TaskC(MlflowTask):
+        int_param: int = luigi.IntParameter(default=10)
+
+        def requires(self) -> Dict[str, luigi.Task]:
+            return dict()
+
+    class MainTask(MlflowTask):
+        bool_param: bool = luigi.BoolParameter(default=False)
+
+        def requires(self) -> Dict[str, luigi.Task]:
+            return {
+                "bbb": TaskB(),
+                "ccc": TaskC(),
+            }
+
+    TestCase().assertDictEqual(MainTask().to_mlflow_tags_w_parent_tags(), {
+        "bool_param": 0,
+        "ccc.int_param": 10,
+        "bbb.aaa.param": "hi",
+    })
+
+
+
+
 
 
 def test_to_tags():
