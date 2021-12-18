@@ -8,6 +8,7 @@ authors = ["Wataru Hirota <wataru@whiro.me>"]
 python = "^3.9"
 luigi = "^3.0.3"
 mlflow = "^1.22.0"
+isort = "^5.10.1"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
