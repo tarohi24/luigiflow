@@ -1,13 +1,18 @@
 import datetime
 import os
+import pickle
 import tempfile
 from abc import ABC
-from typing import NoReturn, Dict
+from typing import NoReturn, Dict, Optional
 from unittest import TestCase
 
 import luigi
+import mlflow
+import pandas as pd
 import pytest
+from luigi import LocalTarget
 
+from luigiflow.savers import save_dataframe, save_pickle
 from luigiflow.task import MlflowTask, MlflowTagValue
 from luigiflow.testing import (
     ArtifactsServer,
@@ -35,6 +40,7 @@ def artifacts_server():
             default_artifact_root,
             uri_prefix + artifacts_destination,
         )
+        mlflow.set_tracking_uri(url)
         yield ArtifactsServer(
             backend_store_uri,
             default_artifact_root,
@@ -105,57 +111,41 @@ def test_to_tags_w_parents():
     })
 
 
+def test_launch_server(artifacts_server):
 
-
-
-
-def test_to_tags():
-
-    class DummyTaskBase(MlflowTask, ABC):
-
+    class Task(MlflowTask):
         @classmethod
         def get_experiment_name(cls) -> str:
-            return 'dummy'
+            return "dummy"
 
         @classmethod
         def get_artifact_filenames(cls) -> Dict[str, str]:
+            return {
+                "csv": "df.csv",
+                "pickle": "df.pickle",
+            }
+
+        def requires(self) -> Dict[str, luigi.Task]:
             return dict()
 
         def _run(self) -> NoReturn:
-            self.get_params()
-            pass
+            df = pd.DataFrame({
+                "a": [0, 1],
+                "b": ["hi", "exmaple"],
+            })
+            self.save_to_mlflow(
+                artifacts_and_save_funcs={
+                    "csv": (df, save_dataframe),
+                    "pickle": (df, save_pickle),
+                }
+            )
 
-    class TaskA(DummyTaskBase):
+    task = Task()
+    task.run()
+    # Check if the artifacts are saved
+    paths: Optional[dict[str, LocalTarget]] = task.output()
+    assert paths is not None
+    pd.read_csv(paths["csv"].path)
+    with open(paths["pickle"].path, "rb") as fin:
+        pickle.load(fin)
 
-        def requires(self):
-            return dict()
-
-        def to_mlflow_tags(self):
-            return {"param_1": 10}
-
-    class TaskB(MlflowTask):
-        message: str = luigi.Parameter(default='hi')
-        def requires(self): return dict()
-
-        def to_mlflow_tags(self): return {"message": self.message}
-
-        def _run(self): ...
-
-    class TaskC(MlflowTask):
-        def requires(self): return {"bbb": TaskB()}
-
-        def to_mlflow_tags(self): return dict()
-
-        def _run(self): ...
-
-    class TaskD(MlflowTask):
-        threshold: float = luigi.FloatParameter(default=2e+3)
-
-        def requires(self): return {'aaa': TaskA(), 'ccc': TaskC()}
-
-        def to_mlflow_tags(self): return {"threshold": self.threshold}
-
-        def _run(self): ...
-
-    task = TaskD()
-    task.to_mlflow_tags_w_parent_tags()

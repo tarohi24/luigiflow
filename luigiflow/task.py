@@ -18,7 +18,7 @@ import luigi
 import mlflow
 from luigi import LocalTarget
 from mlflow.entities import Run
-from mlflow.protos.service_pb2 import ACTIVE_ONLY
+from mlflow.protos.service_pb2 import ACTIVE_ONLY, RunStatus
 from tqdm.auto import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
@@ -98,7 +98,10 @@ class MlflowTask(luigi.Task):
         self.logger.info("Initialize done")
         self._run()
 
-    def search_for_mlflow_run(self) -> Optional[Run]:
+    def search_for_mlflow_run(
+        self,
+        view_type: RunStatus = ACTIVE_ONLY,
+    ) -> Optional[Run]:
         """
         Search an existing run with the same tags.
         """
@@ -114,7 +117,7 @@ class MlflowTask(luigi.Task):
             ],
             filter_string=query,
             max_results=1,
-            run_view_type=ACTIVE_ONLY,
+            run_view_type=view_type,
             output_format="list",
         )
         if len(res) > 0:
@@ -151,16 +154,6 @@ class MlflowTask(luigi.Task):
         Serialize tags, including its parents'.
         The format of dict keys is `{param_path}.{param_name}`,
         where `param_path` represents the relative path.
-        e.g. Let this task have a parameter called `param_1`
-        and two requirements whose names are `aaa` and `bbb`, respectively.
-        Let `aaa` have the parameters `X` and `Y`,
-        and `bbb` have no parameters but a required task `ccc`, which has a parameter called `Z`.
-        Then this method returns the following tags.
-
-        ```python
-hreshold": 2e+3,
-        }
-        ```
         """
 
         def to_tags(task: MlflowTask) -> Dict[str, MlflowTagValue]:
