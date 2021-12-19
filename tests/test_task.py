@@ -2,7 +2,6 @@ import datetime
 import os
 import pickle
 import tempfile
-from abc import ABC
 from typing import NoReturn, Dict, Optional
 from unittest import TestCase
 
@@ -13,7 +12,7 @@ import pytest
 from luigi import LocalTarget
 
 from luigiflow.savers import save_dataframe, save_pickle
-from luigiflow.task import MlflowTask, MlflowTagValue
+from luigiflow.task import MlflowTask
 from luigiflow.testing import (
     ArtifactsServer,
     get_safe_port,
@@ -30,22 +29,18 @@ def artifacts_server():
         port = get_safe_port()
         backend_store_uri = os.path.join(tmpdir, "mlruns")
         artifacts_destination = os.path.join(tmpdir, "mlartifacts")
-        url = f"http://{LOCALHOST}:{port}"
-        default_artifact_root = f"{url}/api/2.0/mlflow-artifacts/artifacts"
-        uri_prefix = "file:///" if is_windows() else ""
         process = launch_mlflow_server(
-            LOCALHOST,
-            port,
-            uri_prefix + backend_store_uri,
-            default_artifact_root,
-            uri_prefix + artifacts_destination,
+            host=LOCALHOST,
+            port=port,
+            backend_store_uri=backend_store_uri,
+            default_artifact_root=artifacts_destination,
         )
-        mlflow.set_tracking_uri(url)
+        tracking_url = f"http://{LOCALHOST}:{port}"
+        mlflow.set_tracking_uri(tracking_url)
         yield ArtifactsServer(
             backend_store_uri,
-            default_artifact_root,
             artifacts_destination,
-            url,
+            tracking_url,
             process,
         )
         process.kill()

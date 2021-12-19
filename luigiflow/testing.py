@@ -13,7 +13,7 @@ from collections import namedtuple
 
 ArtifactsServer = namedtuple(
     "ArtifactsServer",
-    ["backend_store_uri", "default_artifact_root", "artifacts_destination", "url", "process"],
+    ["backend_store_uri", "artifacts_destination", "url", "process"],
 )
 
 LOCALHOST = "127.0.0.1"
@@ -52,7 +52,7 @@ def _await_server_up_or_die(port, timeout=60):
 
 
 # The original name is `_launch_server`
-def launch_mlflow_server(host, port, backend_store_uri, default_artifact_root, artifacts_destination):
+def launch_mlflow_server(host, port, backend_store_uri, default_artifact_root):
     extra_cmd = [] if is_windows() else ["--gunicorn-opts", "--log-level debug"]
     cmd = [
         "mlflow",
@@ -66,8 +66,6 @@ def launch_mlflow_server(host, port, backend_store_uri, default_artifact_root, a
         # MODIFICATION: removed the `save_artifacts` flag
         "--default-artifact-root",
         default_artifact_root,
-        "--artifacts-destination",
-        artifacts_destination,
         *extra_cmd,
     ]
     process = subprocess.Popen(cmd)
