@@ -1,0 +1,7 @@
+version: "3.8"
+services:
+  test:
+    image: luigiflow
+    build:
+      dockerfile: docker/test/Dockerfile
+      context: ./
