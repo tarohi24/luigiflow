@@ -136,6 +136,7 @@ def test_launch_server(artifacts_server):
             )
 
     task = Task()
+    assert task.output() is None
     task.run()
     # Check if the artifacts are saved
     paths: Optional[dict[str, LocalTarget]] = task.output()

@@ -17,7 +17,7 @@ from typing import (
 import luigi
 import mlflow
 from luigi import LocalTarget
-from mlflow.entities import Run
+from mlflow.entities import Run, Experiment
 from mlflow.protos.service_pb2 import ACTIVE_ONLY, RunStatus
 from tqdm.auto import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
@@ -105,7 +105,9 @@ class MlflowTask(luigi.Task):
         """
         Search an existing run with the same tags.
         """
-        experiment = mlflow.get_experiment_by_name(self.get_experiment_name())
+        experiment: Optional[Experiment] = mlflow.get_experiment_by_name(self.get_experiment_name())
+        if experiment is None:
+            return None
         query_items = [
             f'tag.{pname} = "{pval}"'
             for pname, pval in self.to_mlflow_tags_w_parent_tags().items()
