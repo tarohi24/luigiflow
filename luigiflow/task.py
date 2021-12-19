@@ -2,27 +2,17 @@ import logging
 import os
 import tempfile
 from pathlib import Path
-from typing import (
-    Callable,
-    Dict,
-    List,
-    NoReturn,
-    Optional,
-    Tuple,
-    TypeVar,
-    Union,
-    final,
-)
+from typing import Callable, Dict, List, NoReturn, Optional, Tuple, TypeVar, final
 
 import luigi
 import mlflow
 from luigi import LocalTarget
-from mlflow.entities import Run, Experiment
+from mlflow.entities import Experiment, Run
 from mlflow.protos.service_pb2 import ACTIVE_ONLY, RunStatus
 from tqdm.auto import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
-from luigiflow.serializer import MlflowTagSerializer, default_serializer, MlflowTagValue
+from luigiflow.serializer import MlflowTagSerializer, MlflowTagValue, default_serializer
 
 T = TypeVar("T")
 
@@ -105,7 +95,9 @@ class MlflowTask(luigi.Task):
         """
         Search an existing run with the same tags.
         """
-        experiment: Optional[Experiment] = mlflow.get_experiment_by_name(self.get_experiment_name())
+        experiment: Optional[Experiment] = mlflow.get_experiment_by_name(
+            self.get_experiment_name()
+        )
         if experiment is None:
             return None
         query_items = [

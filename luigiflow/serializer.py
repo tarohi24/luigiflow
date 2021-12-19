@@ -1,8 +1,6 @@
 import datetime
 from dataclasses import dataclass
-from typing import Generic, TypeVar, Callable, Union, Dict, Type, Any, cast, Tuple, List
-
-import luigi
+from typing import Any, Callable, List, Tuple, Type, TypeVar, Union, cast
 
 MlflowTagValue = Union[str, int, float]
 T = TypeVar("T")
