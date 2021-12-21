@@ -71,8 +71,9 @@ class MlflowTask(luigi.Task):
         """
         serializer = self.get_tag_serializer()
         return {
-            name: serializer.serialize(getattr(self, name))
+            name: serializer.serialize(val)
             for name in self.get_param_names()
+            if (val := getattr(self, name)) is not None
         }
 
     def _run(self) -> NoReturn:

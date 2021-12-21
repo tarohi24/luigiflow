@@ -50,6 +50,7 @@ def test_to_mlflow_tags():
             default=datetime.date(2021, 1, 2)
         )
         param_large_value: float = luigi.FloatParameter(default=2e11)
+        optional_param: Optional[str] = luigi.Parameter(default=None)
 
     task = Task()
     TestCase().assertDictEqual(
