@@ -54,13 +54,6 @@ class MlflowTask(luigi.Task):
         """
         raise NotImplementedError()
 
-    def _get_all_parameter_values(self) -> Dict[str, MlflowTagValue]:
-        params: Dict[str, MlflowTagValue] = dict()
-        for name, param_obj in self.get_params():
-            params[name] = param_obj.serialize(getattr(self, name))
-
-        return params
-
     def to_mlflow_tags(self) -> Dict[str, MlflowTagValue]:
         """
         Serialize parameters of this task.
