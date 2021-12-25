@@ -63,6 +63,14 @@ def test_to_mlflow_tags():
             "param_large_value": 200000000000.0,
         },
     )
+    # Exclude some params
+    TestCase().assertDictEqual(
+        task.to_mlflow_tags(exclude=["param_int", "param_date", "param_large_value"]),
+        {
+            "param_str": "hi",
+            "param_bool": 1,
+        }
+    )
 
     class AnotherTask(Task):
         strange_param = luigi.Parameter(default=Task())

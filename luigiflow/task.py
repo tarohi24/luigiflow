@@ -2,7 +2,7 @@ import logging
 import os
 import tempfile
 from pathlib import Path
-from typing import Callable, Dict, List, NoReturn, Optional, Tuple, TypeVar, final
+from typing import Callable, Dict, List, NoReturn, Optional, Tuple, TypeVar, final, Collection
 
 import luigi
 import mlflow
@@ -54,19 +54,28 @@ class MlflowTask(luigi.Task):
         """
         raise NotImplementedError()
 
-    def to_mlflow_tags(self) -> Dict[str, MlflowTagValue]:
+    def to_mlflow_tags(
+        self,
+        exclude: Collection[str] = None,
+    ) -> Dict[str, MlflowTagValue]:
         """
         Serialize parameters of this task.
         By default, this method serialize all the parameters.
 
         *Difference from metrics*: A metric is the *result* (calculated after the task is complete),
         whereas tags can be determined before running the task.
+
+        :param exclude: Specify parameters not to show in the tags.
         """
         serializer = self.get_tag_serializer()
+        exclude = exclude or set()
         return {
             name: serializer.serialize(val)
             for name in self.get_param_names()
-            if (val := getattr(self, name)) is not None
+            if (
+                (val := getattr(self, name)) is not None
+                and name not in exclude
+            )
         }
 
     def _run(self) -> NoReturn:
