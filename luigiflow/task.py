@@ -144,7 +144,6 @@ class MlflowTask(luigi.Task):
         # logging
         return {key: LocalTarget(str(p)) for key, p in paths.items()}
 
-    @final
     def to_mlflow_tags_w_parent_tags(self) -> Dict[str, MlflowTagValue]:
         """
         Serialize tags, including its parents'.
