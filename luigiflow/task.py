@@ -21,6 +21,9 @@ class MlflowTask(luigi.Task):
     """
     This is a luigi's task aiming to save artifacts and/or metrics to an mllfow expriment.
     """
+    class Meta:
+        output_tags_recursively: bool = True
+        tags_to_exclude = list()
 
     @classmethod
     def get_experiment_name(cls) -> str:
@@ -54,10 +57,7 @@ class MlflowTask(luigi.Task):
         """
         raise NotImplementedError()
 
-    def to_mlflow_tags(
-        self,
-        exclude: Collection[str] = None,
-    ) -> Dict[str, MlflowTagValue]:
+    def to_mlflow_tags(self) -> Dict[str, MlflowTagValue]:
         """
         Serialize parameters of this task.
         By default, this method serialize all the parameters.
@@ -68,13 +68,12 @@ class MlflowTask(luigi.Task):
         :param exclude: Specify parameters not to show in the tags.
         """
         serializer = self.get_tag_serializer()
-        exclude = exclude or set()
         return {
             name: serializer.serialize(val)
             for name in self.get_param_names()
             if (
                 (val := getattr(self, name)) is not None
-                and name not in exclude
+                and name not in self.Meta.tags_to_exclude
             )
         }
 
@@ -152,6 +151,8 @@ class MlflowTask(luigi.Task):
         The format of dict keys is `{param_path}.{param_name}`,
         where `param_path` represents the relative path.
         """
+        if not self.Meta.output_tags_recursively:
+            return self.to_mlflow_tags()
 
         def to_tags(task: MlflowTask) -> Dict[str, MlflowTagValue]:
             tags = task.to_mlflow_tags()

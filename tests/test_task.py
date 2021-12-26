@@ -64,8 +64,9 @@ def test_to_mlflow_tags():
         },
     )
     # Exclude some params
+    task.Meta.tags_to_exclude = ["param_int", "param_date", "param_large_value"]
     TestCase().assertDictEqual(
-        task.to_mlflow_tags(exclude=["param_int", "param_date", "param_large_value"]),
+        task.to_mlflow_tags(),
         {
             "param_str": "hi",
             "param_bool": 1,
@@ -111,6 +112,26 @@ def test_to_tags_w_parents():
             "bool_param": 0,
             "ccc.int_param": 10,
             "bbb.aaa.param": "hi",
+        },
+    )
+    # Not recursively
+
+    class MainTaskB(MlflowTask):
+        bool_param: bool = luigi.BoolParameter(default=False)
+
+        class Meta:
+            output_tags_recursively = False
+
+        def requires(self) -> Dict[str, luigi.Task]:
+            return {
+                "bbb": TaskB(),
+                "ccc": TaskC(),
+            }
+
+    TestCase().assertDictEqual(
+        MainTaskB().to_mlflow_tags_w_parent_tags(),
+        {
+            "bool_param": 0,
         },
     )
 
