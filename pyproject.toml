@@ -11,6 +11,7 @@ mlflow = "^1.22.0"
 isort = "^5.10.1"
 pandas = "^1.3.5"
 tqdm = "^4.62.3"
+click = "^8.0.3"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
@@ -28,3 +29,6 @@ extend-exclude = 'luigiflow/testing.py'
 
 [tool.mypy]
 ignore_missing_imports = true
+
+[tool.poetry.scripts]
+luigiflow = 'luigiflow.cli:main'
