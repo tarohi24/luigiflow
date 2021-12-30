@@ -12,6 +12,7 @@ from luigiflow.task import MlflowTask
 
 class SomeTask(MlflowTask):
     int_param: int = luigi.IntParameter()
+    str_param: str = luigi.Parameter()
 
     @classmethod
     def get_experiment_name(cls) -> str:
@@ -42,14 +43,19 @@ def test_load_config(project_root, tmpdir):
     tmpfile = tmpdir.mkdir("sub").join("config.jsonnet")
     with tmpfile.open("w") as fout:
         fout.write("""
+        local int_param = 3;
         {
             "SomeTask": {
-                "int_param": 3,
+                "int_param": int_param,
+                "str_param": std.extVar("EXT_VAR"),
             },
         }
         """)
-    loader = JsonnetConfigLoader()
+    loader = JsonnetConfigLoader(
+        external_variables={"EXT_VAR": "hi!"}
+    )
     with loader.load(tmpfile):
         task = SomeTask()
         assert task.int_param == 3
+        assert task.str_param == "hi!"
 
