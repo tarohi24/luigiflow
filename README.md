@@ -30,8 +30,7 @@ mlflow server \
     --default-artifact-root ${ARTIFACTS_DIR}
 ```
 
-3. Implement a task. For example, the following task is a task just to print "hello".
-   For more detailed explanations about how to implement a task, see the following section.
+3. Implement a task. Let's take an example of `HelloTask`. `HelloTask `is a task just to print a parametrized message.
 
 ```python
 import luigi
@@ -43,23 +42,28 @@ class HelloTask(MlflowTask):
 
    @classmethod
    def get_experiment_name(cls):
+      # Set the name of its MLflow experiment
       return "hello"
 
    @classmethod
    def get_artifact_filenames(cls):
+      # {file_identifier: filename} for any mlflow artifacts that this task outputs
       return dict()
 
    def requires(self):
+      # {task_name: task}
       return dict()
 
    def _run(self):
+      # Specify the job contents
       print(self.message)
 ```
 
 4. (necessary only if your task has parameters) Prepare a jsonnet file to set parameter values.
-   You can name the file arbitrarily. Let's name it as "config.jsonnet", for example.
+   Let's create "config.jsonnet", as follows.
 
 ```jsonnet
+# config.jsonnet
 local message = "good morning!";
 {
   "HelloTask": {
