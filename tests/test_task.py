@@ -90,8 +90,16 @@ def test_to_tags_w_parents():
     class MainTaskB(MlflowTask):
         bool_param: bool = luigi.BoolParameter(default=False)
 
-        class Meta:
-            output_tags_recursively = False
+        @classmethod
+        def get_experiment_name(cls) -> str:
+            pass
+
+        @classmethod
+        def get_artifact_filenames(cls) -> Dict[str, str]:
+            pass
+
+        def _run(self) -> NoReturn:
+            pass
 
         def requires(self) -> Dict[str, luigi.Task]:
             return {
@@ -99,6 +107,8 @@ def test_to_tags_w_parents():
                 "ccc": TaskC(),
             }
 
+    task = MainTaskB()
+    task.Meta.output_tags_recursively = False
     TestCase().assertDictEqual(
         MainTaskB().to_mlflow_tags_w_parent_tags(),
         {
