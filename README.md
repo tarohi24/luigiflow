@@ -34,32 +34,50 @@ mlflow server \
    For more detailed explanations about how to implement a task, see the following section.
 
 ```python
+import luigi
 from luigiflow.task import MlflowTask
 
+
 class HelloTask(MlflowTask):
+   message: str = luigi.Parameter()
 
-    @classmethod
-    def get_experiment_name(cls):
-       return "hello"
-    
-    @classmethod
-    def get_artifact_filenames(cls):
-       return dict()
-    
-    def requires(self):
-       return dict()
-    
-    def _run(self):
-       print('hello')
+   @classmethod
+   def get_experiment_name(cls):
+      return "hello"
 
+   @classmethod
+   def get_artifact_filenames(cls):
+      return dict()
+
+   def requires(self):
+      return dict()
+
+   def _run(self):
+      print(self.message)
 ```
-4. Run a task using `luigi.bulid()`. For example, you can run the `HelloTask` as follows.
+
+4. (necessary only if your task has parameters) Prepare a jsonnet file to set parameter values.
+   You can name the file arbitrarily. Let's name it as "config.jsonnet", for example.
+
+```jsonnet
+local message = "good morning!";
+{
+  "HelloTask": {
+    "message": message,
+  }
+}
+```
+
+5. Run a task using `luigiflow.run()`. For example, you can run the `HelloTask` as follows.
 
 ```python
-import luigi
-import mlflow
+import luigiflow
 
-mlflow.set_tracking_uri("http://localhost:8000")  # Update the URI according to your mlflow config
-
-luigi.build([HelloTask(), ])
+config_path = "config.jsonnet"
+luigiflow.run(
+  task_cls=HelloTask,
+  mlflow_tracking_uri="http://localhost:8000",  # set your mlflow's uri 
+  config_path=config_path,
+  local_scheduler=True,
+)
 ```
