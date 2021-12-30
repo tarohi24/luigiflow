@@ -19,10 +19,6 @@ $ pip install git+https://github.com/tarohi24/luigiflow.git
 
 ```bash
 #!/bin/bash 
-set -o errexit
-set -o nounset
-set -o pipefail
-
 DB_URI="sqlite:///db.sqlite3"  # Specify backend database
 ARTIFACTS_DIR="/PATH/TO/ARTIFACTS_DIR"  # Specify a directory where mlflow saves arfifacts  
 PORT=8000
@@ -34,8 +30,7 @@ mlflow server \
     --default-artifact-root ${ARTIFACTS_DIR}
 ```
 
-3. Launch a luigi server. If you run it on your local machine, run `$ luigid`.
-4. Implement a task. For example, the following task is a task just to print "hello".
+3. Implement a task. For example, the following task is a task just to print "hello".
    For more detailed explanations about how to implement a task, see the following section.
 
 ```python
@@ -58,7 +53,7 @@ class HelloTask(MlflowTask):
        print('hello')
 
 ```
-5. Run a task using `luigi.bulid()`. For example, you can run the `HelloTask` as follows.
+4. Run a task using `luigi.bulid()`. For example, you can run the `HelloTask` as follows.
 
 ```python
 import luigi
