@@ -59,3 +59,30 @@ def test_load_config(project_root, tmpdir):
         assert task.int_param == 3
         assert task.str_param == "hi!"
 
+
+def test_prioritize_jsonnet(tmpdir):
+    directory = tmpdir.mkdir("sub")
+    config_path = directory.join("config.jsonnet")
+    with config_path.open("w") as fout:
+        fout.write("""
+        local int_param = 3;
+        {
+            "SomeTask": {
+                "int_param": int_param,
+                "str_param": std.extVar("EXT_VAR"),
+            },
+        }
+        """)
+    with directory.join("luigi.cfg").open("w") as fout:
+        fout.write("""
+        [SomeTask]
+        int_param = 1
+        """)
+    loader = JsonnetConfigLoader(
+        external_variables={"EXT_VAR": "hi!"}
+    )
+    with loader.load(config_path):
+        task = SomeTask()
+        assert task.int_param == 3
+        assert task.str_param == "hi!"
+
