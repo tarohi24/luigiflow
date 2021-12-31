@@ -27,20 +27,3 @@ class TaskInterface(MlflowTask, Registrable, ABC):
         base = MlflowTask.to_mlflow_tags(self)
         base['name'] = self.get_subtask_name()
         return base
-
-
-def resolve(
-    cls: Type[MlflowTask],
-    dependency_container_cls: Type[luigi.Config],
-) -> Type[MlflowTask]:
-    if issubclass(cls, TaskInterface):
-        task_cls = cast(Type[TaskInterface], cls)
-        dep = dependency_container_cls()
-        task_name = task_cls.get_experiment_name()
-        subtask_name = getattr(dep, task_name)
-        if subtask_name is None:
-            raise ValueError(f'Dependency of {task_name} is not specified')
-        return task_cls.by_name(name=subtask_name)  # type: ignore
-    else:
-        # No need to resolve
-        return cls

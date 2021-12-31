@@ -5,10 +5,12 @@ import luigi
 import pandas as pd
 from dependency_injector import providers
 from dependency_injector.containers import DeclarativeContainer
+from dependency_injector.wiring import inject, Provide
 
 from luigiflow.config import JsonnetConfigLoader
-from luigiflow.interface import TaskInterface, resolve
+from luigiflow.interface import TaskInterface
 from luigiflow.savers import save_dataframe
+from luigiflow.task import MlflowTask
 
 
 class AbstractTask(TaskInterface, ABC):
@@ -63,6 +65,29 @@ class ImplB(AbstractTask):
         )
 
 
+class AnotherTask(MlflowTask):
+
+    @classmethod
+    def get_experiment_name(cls) -> str:
+        pass
+
+    @classmethod
+    def get_artifact_filenames(cls) -> Dict[str, str]:
+        pass
+
+    @inject
+    def requires(
+        self,
+        abstract_task: AbstractTask = Provide["dummy_task"],
+    ) -> Dict[str, luigi.Task]:
+        return {
+            "dummy": abstract_task,
+        }
+
+    def _run(self) -> NoReturn:
+        pass
+
+
 class Container(DeclarativeContainer):
     config = providers.Configuration()
     dummy_task = providers.Singleton(
@@ -90,5 +115,6 @@ def test_change_implementation(tmpdir):
                 "dependencies": context.get_dependencies(),
             }
         )
-        assert isinstance(container.dummy_task(), ImplB)
-
+        container.wire(modules=[__name__, ])
+        task = AnotherTask()
+        assert isinstance(task.requires()['dummy'], ImplB)
