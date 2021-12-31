@@ -9,6 +9,10 @@ from luigiflow.interface import TaskInterface
 from luigiflow.task import MlflowTask
 
 
+class InvalidOperation(Exception):
+    pass
+
+
 def initialize_container() -> DynamicContainer():
     container = DynamicContainer()
     container.config = providers.Configuration()
@@ -24,8 +28,14 @@ def resolve_task(interface_cls: Type[TaskInterface], subtask_name: str) -> Type[
 @dataclass
 class DiContainer:
     container: DynamicContainer = field(default_factory=initialize_container)
+    is_activated: bool = field(init=False)
+
+    def __post_init__(self):
+        self.is_activated = False
 
     def register_interface(self, interface_cls: Type[TaskInterface]) -> 'DiContainer':
+        if self.is_activated:
+            raise InvalidOperation("You cannot register a new interface after activating the container")
         setattr(
             self.container,
             interface_cls.get_experiment_name(),
@@ -38,6 +48,7 @@ class DiContainer:
         return self
 
     def activate_injection(self, modules: List[str]) -> 'DiContainer':
+        self.is_activated = True
         self.container.wire(modules=modules)
         return self
 
@@ -46,6 +57,8 @@ class DiContainer:
         :param dependencies: `{experiemnt_name: subtask_name}`
         :return: self
         """
+        if self.is_activated:
+            raise InvalidOperation("You cannot add dependencies after activating the container.")
         self.container.config.from_dict(
             {
                 "dependencies": dependencies,

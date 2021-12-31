@@ -2,9 +2,10 @@ from abc import ABC
 from typing import NoReturn, Dict, cast
 
 import luigi
+import pytest
 from dependency_injector.wiring import inject, Provide
 
-from luigiflow.container import DiContainer
+from luigiflow.container import DiContainer, InvalidOperation
 from luigiflow.interface import TaskInterface
 from luigiflow.task import MlflowTask
 
@@ -80,3 +81,28 @@ def test_injection():
     container.activate_injection(modules=[__name__])
     dep_task = MainTask().requires()["dep"]
     assert cast(ImplB, dep_task).get_subtask_name() == "B"  # Don't test with `isinstance`
+
+    # test with modifying order of the initialization
+    new_container = DiContainer()
+    new_container.load_dependencies(
+        {
+            "abs": "A",
+        }
+    )
+    new_container.register_interface(AbsClass)
+    new_container.activate_injection(modules=[__name__])
+    dep_task = MainTask().requires()["dep"]
+    assert cast(ImplB, dep_task).get_subtask_name() == "A"  # Don't test with `isinstance`
+
+
+def test_invalid_injection_order():
+    container = DiContainer()
+    container.activate_injection(modules=[__name__])
+    with pytest.raises(InvalidOperation):
+        container.register_interface(AbsClass)
+    with pytest.raises(InvalidOperation):
+        container.load_dependencies(
+            {
+                "abs": "B",
+            }
+        )
