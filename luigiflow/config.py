@@ -34,10 +34,13 @@ class ConfigContext:
         with self.tmp_toml_path.open('w') as fout:
             toml.dump(self.data, fout)
         add_config_path(str(self.tmp_toml_path))
-        return True
+        return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.tmp_toml_path.unlink(missing_ok=True)
+
+    def get_dependencies(self, key: str = 'dependencies') -> Dict[str, str]:
+        return self.data.get(key, dict())
 
 
 @dataclass

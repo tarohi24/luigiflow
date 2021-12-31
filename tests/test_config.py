@@ -1,9 +1,7 @@
-from pathlib import Path
 from typing import NoReturn, Dict
 
 import luigi
 import pandas as pd
-from luigi.configuration import get_config
 
 from luigiflow.config import JsonnetConfigLoader
 from luigiflow.savers import save_dataframe
