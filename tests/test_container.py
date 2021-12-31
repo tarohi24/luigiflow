@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import NoReturn, Dict
+from typing import NoReturn, Dict, cast
 
 import luigi
 from dependency_injector.wiring import inject, Provide
@@ -79,4 +79,4 @@ def test_injection():
     container.register_interface(AbsClass)
     container.activate_injection(modules=[__name__])
     dep_task = MainTask().requires()["dep"]
-    assert isinstance(dep_task, ImplB)
+    assert cast(ImplB, dep_task).get_subtask_name() == "B"  # Don't test with `isinstance`
