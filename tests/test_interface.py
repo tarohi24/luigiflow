@@ -3,11 +3,10 @@ from typing import NoReturn, Dict
 
 import luigi
 import pandas as pd
-from dependency_injector import providers
-from dependency_injector.containers import DeclarativeContainer
 from dependency_injector.wiring import inject, Provide
 
 from luigiflow.config import JsonnetConfigLoader
+from luigiflow.container import DiContainer
 from luigiflow.interface import TaskInterface
 from luigiflow.savers import save_dataframe
 from luigiflow.task import MlflowTask
@@ -17,7 +16,7 @@ class AbstractTask(TaskInterface, ABC):
 
     @classmethod
     def get_experiment_name(cls) -> str:
-        return "dummy"
+        return "dummy_exp"
 
     @classmethod
     def get_artifact_filenames(cls) -> Dict[str, str]:
@@ -78,7 +77,7 @@ class AnotherTask(MlflowTask):
     @inject
     def requires(
         self,
-        abstract_task: AbstractTask = Provide["dummy_task"],
+        abstract_task: AbstractTask = Provide["dummy_exp"],
     ) -> Dict[str, luigi.Task]:
         return {
             "dummy": abstract_task,
@@ -86,14 +85,6 @@ class AnotherTask(MlflowTask):
 
     def _run(self) -> NoReturn:
         pass
-
-
-class Container(DeclarativeContainer):
-    config = providers.Configuration()
-    dummy_task = providers.Singleton(
-        lambda subname: AbstractTask.by_name(subname)(),
-        subname=config.dependencies.dummy,
-    )
 
 
 def test_change_implementation(tmpdir):
@@ -109,12 +100,9 @@ def test_change_implementation(tmpdir):
         """)
     config_loader = JsonnetConfigLoader()
     with config_loader.load(config_path) as context:
-        container = Container()
-        container.config.from_dict(
-            {
-                "dependencies": context.get_dependencies(),
-            }
-        )
-        container.wire(modules=[__name__, ])
+        container = DiContainer()
+        container.load_dependencies(context=context)
+        container.register_interface(AbstractTask)
+        container.activate_injection(modules=[__name__, ])
         task = AnotherTask()
         assert isinstance(task.requires()['dummy'], ImplB)
