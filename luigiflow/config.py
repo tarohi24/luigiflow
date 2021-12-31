@@ -15,9 +15,6 @@ JsonDict = Dict[str, Any]
 
 @dataclass
 class ConfigContext:
-    """
-    TODO: copyright
-    """
     data: JsonDict
     tmpfile_suffix: str = field(default=".toml")
     tmp_toml_path: Path = field(init=False)
