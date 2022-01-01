@@ -5,7 +5,7 @@ import luigi
 import pytest
 from dependency_injector.wiring import inject, Provide
 
-from luigiflow.container import DiContainer, InvalidOperation
+from luigiflow.container import DiContainer, InvalidOperation, CannotSolveDependency
 from luigiflow.interface import TaskInterface
 from luigiflow.task import MlflowTask
 

@@ -4,12 +4,15 @@ from typing import Type, List, Dict
 from dependency_injector import providers
 from dependency_injector.containers import DynamicContainer
 
-from luigiflow.config import ConfigContext
 from luigiflow.interface import TaskInterface
 from luigiflow.task import MlflowTask
 
 
 class InvalidOperation(Exception):
+    pass
+
+
+class CannotSolveDependency(Exception):
     pass
 
 
@@ -19,7 +22,14 @@ def initialize_container() -> DynamicContainer():
     return container
 
 
-def resolve_task(interface_cls: Type[TaskInterface], subtask_name: str) -> Type[MlflowTask]:
+def resolve_task(
+    interface_cls: Type[TaskInterface],
+    config: providers.Configuration
+) -> Type[MlflowTask]:
+    try:
+        subtask_name = getattr(config.dependencies, interface_cls.get_experiment_name())
+    except AttributeError:
+        raise CannotSolveDependency()
     if subtask_name is None:
         raise ValueError(f"Dependency of {interface_cls.get_experiment_name()} is null")
     return interface_cls.by_name(subtask_name)
@@ -42,7 +52,7 @@ class DiContainer:
             providers.Callable(
                 resolve_task,
                 interface_cls=interface_cls,
-                subtask_name=getattr(self.container.config.dependencies, interface_cls.get_experiment_name()),
+                config=self.container.config,
             )
         )
         return self
