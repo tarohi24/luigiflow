@@ -1,5 +1,6 @@
 from abc import ABC
 from typing import NoReturn, Dict, cast
+from unittest import TestCase
 
 import luigi
 import pytest
@@ -106,3 +107,17 @@ def test_invalid_injection_order():
                 "abs": "B",
             }
         )
+
+
+def test_resolve_interface():
+    container = DiContainer()
+    with pytest.raises(CannotSolveDependency):
+        container.resolve(AbsClass)
+    container.register_interface(AbsClass)
+    with pytest.raises(CannotSolveDependency):
+        container.resolve(AbsClass)
+    container.load_dependencies({"abs": "B"})
+    sub_class = container.resolve(AbsClass)
+    assert issubclass(container.resolve(AbsClass), ImplB)
+    container.load_dependencies({"abs": "A"})
+    assert issubclass(container.resolve(AbsClass), ImplA)

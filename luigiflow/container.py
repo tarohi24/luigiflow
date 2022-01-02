@@ -26,13 +26,7 @@ def resolve_task(
     interface_cls: Type[TaskInterface],
     config: providers.Configuration
 ) -> Type[MlflowTask]:
-    try:
-        subtask_name = getattr(config.dependencies, interface_cls.get_experiment_name())
-    except AttributeError:
-        raise CannotSolveDependency()
-    if subtask_name is None:
-        raise ValueError(f"Dependency of {interface_cls.get_experiment_name()} is null")
-    return interface_cls.by_name(subtask_name)
+    t
 
 
 @dataclass
@@ -75,3 +69,13 @@ class DiContainer:
             }
         )
         return self
+
+    def resolve(self, interface_cls: Type[TaskInterface]) -> Type[MlflowTask]:
+        exp_name = interface_cls.get_experiment_name()
+        if not hasattr(self.container.config, exp_name):
+            raise CannotSolveDependency()
+        # caution: without `()` at the end, `getattr` returns a `dependency` object, which is not yet resolved.
+        subtask_name = getattr(self.container.config.dependencies, exp_name)()
+        if subtask_name is None:
+            raise CannotSolveDependency(f"Dependency of {interface_cls.get_experiment_name()} is null")
+        return interface_cls.by_name(subtask_name)
