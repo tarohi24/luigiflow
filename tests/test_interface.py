@@ -94,14 +94,14 @@ def test_change_implementation(tmpdir):
         fout.write("""
         {
             "dependencies": {
-                "dummy": "B",
+                "dummy_exp": "B",
             }
         }
         """)
     config_loader = JsonnetConfigLoader()
     with config_loader.load(config_path) as context:
         container = DiContainer()
-        container.load_dependencies(context=context)
+        container.load_dependencies(dependencies=context.get_dependencies())
         container.register_interface(AbstractTask)
         container.activate_injection(modules=[__name__, ])
         task = AnotherTask()

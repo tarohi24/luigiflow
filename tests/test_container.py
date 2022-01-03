@@ -1,6 +1,5 @@
 from abc import ABC
 from typing import NoReturn, Dict, cast
-from unittest import TestCase
 
 import luigi
 import pytest

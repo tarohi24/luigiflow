@@ -22,13 +22,6 @@ def initialize_container() -> DynamicContainer():
     return container
 
 
-def resolve_task(
-    interface_cls: Type[TaskInterface],
-    config: providers.Configuration
-) -> Type[MlflowTask]:
-    t
-
-
 @dataclass
 class DiContainer:
     container: DynamicContainer = field(default_factory=initialize_container)
@@ -44,9 +37,8 @@ class DiContainer:
             self.container,
             interface_cls.get_experiment_name(),
             providers.Callable(
-                resolve_task,
+                lambda interface_cls: self.resolve(interface_cls)(),
                 interface_cls=interface_cls,
-                config=self.container.config,
             )
         )
         return self
