@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import NoReturn, Dict, cast
+from typing import NoReturn, Dict, cast, Type
 
 import luigi
 import pytest
@@ -60,10 +60,10 @@ class MainTask(MlflowTask):
     @inject
     def requires(
         self,
-        abs_task: AbsClass = Provide["abs"],
+        abs_task_cls: Type[AbsClass] = Provide["abs"],
     ) -> Dict[str, luigi.Task]:
         return {
-            "dep": abs_task,
+            "dep": abs_task_cls(),
         }
 
     def _run(self) -> NoReturn:
@@ -93,6 +93,7 @@ def test_injection():
     new_container.activate_injection(modules=[__name__])
     dep_task = MainTask().requires()["dep"]
     assert cast(ImplB, dep_task).get_subtask_name() == "A"  # Don't test with `isinstance`
+    assert isinstance(dep_task, TaskInterface)
 
 
 def test_invalid_injection_order():

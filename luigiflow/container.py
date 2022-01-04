@@ -37,7 +37,7 @@ class DiContainer:
             self.container,
             interface_cls.get_experiment_name(),
             providers.Callable(
-                lambda interface_cls: self.resolve(interface_cls)(),
+                lambda interface_cls: self.resolve(interface_cls),
                 interface_cls=interface_cls,
             )
         )

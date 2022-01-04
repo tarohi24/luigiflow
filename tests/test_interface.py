@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import NoReturn, Dict
+from typing import NoReturn, Dict, Type
 
 import luigi
 import pandas as pd
@@ -77,10 +77,10 @@ class AnotherTask(MlflowTask):
     @inject
     def requires(
         self,
-        abstract_task: AbstractTask = Provide["dummy_exp"],
+        abstract_task_cls: Type[AbstractTask] = Provide["dummy_exp"],
     ) -> Dict[str, luigi.Task]:
         return {
-            "dummy": abstract_task,
+            "dummy": abstract_task_cls(),
         }
 
     def _run(self) -> NoReturn:
