@@ -84,3 +84,16 @@ def test_prioritize_jsonnet(tmpdir):
         assert task.int_param == 3
         assert task.str_param == "hi!"
 
+
+def test_load_from_dict():
+    config = {
+        "SomeTask": {
+            "int_param": 2,
+            "str_param": "hi",
+        },
+    }
+    loader = JsonnetConfigLoader()
+    with loader.load_from_dict(config):
+        task = SomeTask()
+        assert task.int_param == 2
+        assert task.str_param == "hi"

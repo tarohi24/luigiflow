@@ -52,5 +52,16 @@ class JsonnetConfigLoader:
             ext_vars=self.external_variables
         )
         param_dict = json.loads(json_str)
+        return self.load_from_dict(param_dict)
+
+    @staticmethod
+    def load_from_dict(param_dict: Dict[str, Any]):
+        """
+        I prefer to use this method rather than calling `ConfigContext` directly
+        because I can hide `ConcigContext` from outside this module.
+
+        :param param_dict:
+        :return:
+        """
         config_context = ConfigContext(data=param_dict)
         return config_context
