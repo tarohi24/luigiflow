@@ -1,6 +1,6 @@
 import datetime
 import pickle
-from typing import Dict, NoReturn, Optional
+from typing import Dict, NoReturn, Optional, Set
 from unittest import TestCase
 
 import luigi
@@ -12,7 +12,7 @@ from luigiflow.savers import save_dataframe, save_pickle
 from luigiflow.task import MlflowTask
 
 
-def test_to_mlflow_tags():
+def test_to_mlflow_tags(monkeypatch):
     class Task(MlflowTask):
         param_int: int = luigi.IntParameter(default=10)
         param_str: str = luigi.Parameter(default="hi")
@@ -23,7 +23,24 @@ def test_to_mlflow_tags():
         param_large_value: float = luigi.FloatParameter(default=2e11)
         optional_param: Optional[str] = luigi.Parameter(default=None)
 
+        @classmethod
+        def get_tags_to_exclude(cls) -> Set[str]:
+            return {"param_int", "param_date", "param_large_value"}
+
     task = Task()
+    TestCase().assertDictEqual(
+        task.to_mlflow_tags(),
+        {
+            "param_str": "hi",
+            "param_bool": 1,
+        }
+    )
+
+    def mock_get_tags_to_exclude(*args, **kwargs):
+        return set()
+
+    # overwrite `get_tags_to_exclude`
+    monkeypatch.setattr(Task, "get_tags_to_exclude", mock_get_tags_to_exclude)
     TestCase().assertDictEqual(
         task.to_mlflow_tags(),
         {
@@ -34,15 +51,6 @@ def test_to_mlflow_tags():
             "param_large_value": 200000000000.0,
         },
     )
-    # Exclude some params
-    task.Meta.tags_to_exclude = ["param_int", "param_date", "param_large_value"]
-    TestCase().assertDictEqual(
-        task.to_mlflow_tags(),
-        {
-            "param_str": "hi",
-            "param_bool": 1,
-        }
-    )
 
     class AnotherTask(Task):
         strange_param = luigi.Parameter(default=Task())
@@ -51,7 +59,7 @@ def test_to_mlflow_tags():
         AnotherTask().to_mlflow_tags()
 
 
-def test_to_tags_w_parents():
+def test_to_tags_w_parents(monkeypatch):
     class TaskA(MlflowTask):
         param: str = luigi.Parameter(default="hi")
 
@@ -59,6 +67,8 @@ def test_to_tags_w_parents():
             return dict()
 
     class TaskB(MlflowTask):
+        value: int = luigi.IntParameter(default=1)
+
         def requires(self) -> Dict[str, luigi.Task]:
             return {"aaa": TaskA()}
 
@@ -77,29 +87,17 @@ def test_to_tags_w_parents():
                 "ccc": TaskC(),
             }
 
-    TestCase().assertDictEqual(
-        MainTask().to_mlflow_tags_w_parent_tags(),
-        {
-            "bool_param": 0,
-            "ccc.int_param": 10,
-            "bbb.aaa.param": "hi",
-        },
-    )
-    # Not recursively
+    assert sorted(MainTask().to_mlflow_tags_w_parent_tags().items()) == sorted({
+        "bool_param": 0,
+        "ccc.int_param": 10,
+        "bbb.value": 1,
+        "bbb.aaa.param": "hi",
+    }.items())
 
-    class MainTaskB(MlflowTask):
-        bool_param: bool = luigi.BoolParameter(default=False)
+    # Test non-recurseive
 
-        @classmethod
-        def get_experiment_name(cls) -> str:
-            pass
-
-        @classmethod
-        def get_artifact_filenames(cls) -> Dict[str, str]:
-            pass
-
-        def _run(self) -> NoReturn:
-            pass
+    class MainTaskWoRecursiveTags(MlflowTask):
+        bool_param: bool = luigi.BoolParameter(default=True)
 
         def requires(self) -> Dict[str, luigi.Task]:
             return {
@@ -107,13 +105,31 @@ def test_to_tags_w_parents():
                 "ccc": TaskC(),
             }
 
-    task = MainTaskB()
-    task.Meta.output_tags_recursively = False
+        @classmethod
+        def output_tags_recursively(cls) -> bool:
+            return False
+
+    task = MainTaskWoRecursiveTags()
     TestCase().assertDictEqual(
-        MainTaskB().to_mlflow_tags_w_parent_tags(),
+        task.to_mlflow_tags_w_parent_tags(),
         {
-            "bool_param": 0,
+            "bool_param": True,
         },
+    )
+
+    # The top task output tags recursively, but one of its dependencies don't
+    def mock_return_false(*args, **kwargs):
+        return False
+
+    monkeypatch.setattr(TaskB, "output_tags_recursively", mock_return_false)
+    task = MainTask()
+    TestCase().assertDictEqual(
+        task.to_mlflow_tags_w_parent_tags(),
+        {
+            "bool_param": False,
+            "ccc.int_param": 10,
+            "bbb.value": 1,
+        }
     )
 
 

@@ -2,7 +2,7 @@ import logging
 import os
 import tempfile
 from pathlib import Path
-from typing import Callable, Dict, List, NoReturn, Optional, Tuple, TypeVar, final, Collection
+from typing import Callable, Dict, List, NoReturn, Optional, Tuple, TypeVar, final, Collection, Set
 
 import luigi
 import mlflow
@@ -21,9 +21,14 @@ class MlflowTask(luigi.Task):
     """
     This is a luigi's task aiming to save artifacts and/or metrics to an mllfow expriment.
     """
-    class Meta:
-        output_tags_recursively: bool = True
-        tags_to_exclude = list()
+
+    @classmethod
+    def get_tags_to_exclude(cls) -> Set[str]:
+        return set()  # default
+
+    @classmethod
+    def output_tags_recursively(cls) -> bool:
+        return True  # default
 
     @classmethod
     def get_experiment_name(cls) -> str:
@@ -73,7 +78,7 @@ class MlflowTask(luigi.Task):
             for name in self.get_param_names()
             if (
                 (val := getattr(self, name)) is not None
-                and name not in self.Meta.tags_to_exclude
+                and name not in self.get_tags_to_exclude()
             )
         }
 
@@ -150,12 +155,14 @@ class MlflowTask(luigi.Task):
         The format of dict keys is `{param_path}.{param_name}`,
         where `param_path` represents the relative path.
         """
-        if not self.Meta.output_tags_recursively:
+        if not self.output_tags_recursively():
             return self.to_mlflow_tags()
 
         def to_tags(task: MlflowTask) -> Dict[str, MlflowTagValue]:
             tags = task.to_mlflow_tags()
             if task.requires() is None:
+                return tags
+            elif len(task.requires()) == 0:
                 return tags
             parent_tasks: Dict[str, MlflowTask] = {
                 key: val
@@ -164,7 +171,7 @@ class MlflowTask(luigi.Task):
             }
             for task_name, t in parent_tasks.items():
                 t_tags_w_prefix = {
-                    f"{task_name}.{key}": val for key, val in to_tags(t).items()
+                    f"{task_name}.{key}": val for key, val in t.to_mlflow_tags_w_parent_tags().items()
                 }
                 tags = dict(**tags, **t_tags_w_prefix)
             return tags
