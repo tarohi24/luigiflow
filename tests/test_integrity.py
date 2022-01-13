@@ -10,6 +10,7 @@ from luigi import LuigiStatusCode
 
 import luigiflow
 from luigiflow.config import InvalidJsonnetFileError
+from luigiflow.runner import run_multiple_tasks_of_single_task_cls
 from luigiflow.savers import save_dataframe
 from luigiflow.task import MlflowTask
 
@@ -81,39 +82,50 @@ def test_run(artifacts_server):
     assert res.status == LuigiStatusCode.SUCCESS
 
 
-def test_run_with_environmental_variables(artifacts_server, tmpdir, monkeypatch):
+def test_run_multiple_tasks(artifacts_server, tmpdir):
     config_path = tmpdir.mkdir("sub").join("config.jsonnet")
     with config_path.open("w") as fout:
         fout.write('''
-        {
-            "TaskA": {
-                "date_start": std.extVar("DATE_START"),
+            {
+                "TaskA": {
+                    "date_start": std.extVar("DATE_START"),
+                }
             }
-        }
-        ''')
+            ''')
     kwargs = dict(
-        task_cls=TaskA,
         mlflow_tracking_uri=artifacts_server.url,
         config_path=config_path,
         local_scheduler=True,
         create_experiment_if_not_existing=True,
     )
-    with pytest.raises(KeyError):
-        # envvar not set
-        res = luigiflow.run(
-            env_vars=["DATE_START", ],
-            **kwargs
-        )
-    # Fail because the env_var is invalid
-    monkeypatch.setenv("DATE", "2021-11-11")
+    invalid_params = [
+        {"DATE": "2021-11-11"},
+        {"DATE_START": "2021-11-11"},
+    ]
     with pytest.raises(InvalidJsonnetFileError):
-        res = luigiflow.run(
-            env_vars=["DATE", ],
+        res = run_multiple_tasks_of_single_task_cls(
+            task_cls=TaskA,
+            params=invalid_params,
             **kwargs
         )
-    monkeypatch.setenv("DATE_START", "2021-12-01")
-    res = luigiflow.run(
-        env_vars=["DATE_START", ],
+    # valid keys, invalid values
+    invalid_params = [
+        {"DATE_START": "hi!"},  # invalid
+        {"DATE_START": "2021-11-11"},  # valid
+    ]
+    with pytest.raises(ValueError):
+        res = run_multiple_tasks_of_single_task_cls(
+            task_cls=TaskA,
+            params=invalid_params,
+            **kwargs
+        )
+    valid_params = [
+        {"DATE_START": "2021-11-12"},  # valid
+        {"DATE_START": "2021-11-11"},  # valid
+    ]
+    res = run_multiple_tasks_of_single_task_cls(
+        task_cls=TaskA,
+        params=valid_params,
         **kwargs
     )
     assert res.status == LuigiStatusCode.SUCCESS
