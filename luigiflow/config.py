@@ -13,6 +13,10 @@ from luigi.configuration.base_parser import BaseParser
 JsonDict = Dict[str, Any]
 
 
+class InvalidJsonnetFileError(Exception):
+    pass
+
+
 @dataclass
 class ConfigContext:
     data: JsonDict
@@ -47,10 +51,13 @@ class JsonnetConfigLoader:
     )  # Its type is equivalent to `JsonDict`, but semantically different.
 
     def load(self, path: PathLike) -> ConfigContext:
-        json_str = _jsonnet.evaluate_file(
-            str(path),
-            ext_vars=self.external_variables
-        )
+        try:
+            json_str = _jsonnet.evaluate_file(
+                str(path),
+                ext_vars=self.external_variables
+            )
+        except RuntimeError as e:
+            raise InvalidJsonnetFileError(str(e))
         param_dict = json.loads(json_str)
         return self.load_from_dict(param_dict)
 

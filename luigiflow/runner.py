@@ -1,6 +1,7 @@
+import os
 from os import PathLike
 from pathlib import Path
-from typing import Optional, Dict, Any, Type
+from typing import Optional, Dict, Any, Type, List
 
 import luigi
 import mlflow
@@ -17,6 +18,7 @@ def run(
     local_scheduler: bool = True,
     create_experiment_if_not_existing: bool = False,
     luigi_build_kwargs: Optional[Dict[str, Any]] = None,
+    env_vars: Optional[List[str]] = None,
 ) -> LuigiRunResult:
     assert Path(config_path).exists()
     mlflow.set_tracking_uri(mlflow_tracking_uri)
@@ -27,7 +29,14 @@ def run(
         else:
             raise ValueError()  # TODO: error message
 
-    config_loader = JsonnetConfigLoader()
+    if env_vars is not None:
+        external_vars = {
+            key: os.environ[key]
+            for key in env_vars
+        }
+        config_loader = JsonnetConfigLoader(external_variables=external_vars)
+    else:
+        config_loader = JsonnetConfigLoader()
     with config_loader.load(config_path):
         task = task_cls()
         res = luigi.build(
