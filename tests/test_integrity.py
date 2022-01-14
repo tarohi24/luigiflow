@@ -9,7 +9,7 @@ import pytest
 from luigi import LuigiStatusCode
 
 import luigiflow
-from luigiflow.config import InvalidJsonnetFileError
+from luigiflow.config import InvalidJsonnetFileError, JsonnetConfigLoader
 from luigiflow.runner import run_multiple_tasks_of_single_task_cls
 from luigiflow.savers import save_dataframe
 from luigiflow.task import MlflowTask
@@ -129,3 +129,8 @@ def test_run_multiple_tasks(artifacts_server, tmpdir):
         **kwargs
     )
     assert res.status == LuigiStatusCode.SUCCESS
+    # Check if all the tasks ran
+    for param in valid_params:
+        config_loader = JsonnetConfigLoader(external_variables=param)
+        with config_loader.load(config_path):
+            assert TaskA().complete()
