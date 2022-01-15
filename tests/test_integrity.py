@@ -134,3 +134,16 @@ def test_run_multiple_tasks(artifacts_server, tmpdir):
         config_loader = JsonnetConfigLoader(external_variables=param)
         with config_loader.load(config_path):
             assert TaskA().complete()
+
+
+def test_dry_run(artifacts_server):
+    config_path = Path(__file__).parent / 'fixture/config.jsonnet'
+    res = luigiflow.run(
+        task_cls=TaskB,
+        mlflow_tracking_uri=artifacts_server.url,
+        config_path=config_path,
+        local_scheduler=True,
+        create_experiment_if_not_existing=True,
+        dry_run=True,
+    )
+    assert isinstance(res, luigi.Task)
