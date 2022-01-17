@@ -1,6 +1,6 @@
 from os import PathLike
 from pathlib import Path
-from typing import Optional, Dict, Any, Type, List, Union
+from typing import Optional, Dict, Any, Type, List, Union, Tuple
 
 import luigi
 import mlflow
@@ -8,6 +8,8 @@ from luigi.execution_summary import LuigiRunResult
 
 from luigiflow.config import JsonnetConfigLoader
 from luigiflow.task import MlflowTask
+
+RunReturn = Tuple[List[luigi.Task], Optional[LuigiRunResult]]
 
 
 def run_multiple_tasks_of_single_task_cls(
@@ -19,7 +21,7 @@ def run_multiple_tasks_of_single_task_cls(
     create_experiment_if_not_existing: bool = False,
     luigi_build_kwargs: Optional[Dict[str, Any]] = None,
     dry_run: bool = False,
-) -> Union[LuigiRunResult, List[luigi.Task]]:
+) -> RunReturn:
     assert Path(config_path).exists()
     luigi_build_kwargs = luigi_build_kwargs or dict()
     mlflow.set_tracking_uri(mlflow_tracking_uri)
@@ -44,28 +46,28 @@ def run_multiple_tasks_of_single_task_cls(
             task = task_cls()
             tasks.append(task)
     if dry_run:
-        return tasks
+        return tasks, None
     res = luigi.build(
         tasks,
         local_scheduler=local_scheduler,
         detailed_summary=True,
         **luigi_build_kwargs
     )
-    return res
+    return tasks, res
 
 
 def run(
     task_cls: Type[MlflowTask],
     **kwargs
-) -> Union[LuigiRunResult, luigi.Task]:
-    res = run_multiple_tasks_of_single_task_cls(
+) -> RunReturn:
+    """
+    Run a task without ext params
+    :param task_cls:
+    :param kwargs:
+    :return:
+    """
+    return run_multiple_tasks_of_single_task_cls(
         task_cls=task_cls,
         params=list(),
         **kwargs
     )
-    if isinstance(res, list):
-        assert len(res) == 1
-        return res[0]
-    return res
-
-
