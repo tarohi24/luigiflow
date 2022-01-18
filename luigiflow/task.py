@@ -93,7 +93,7 @@ class MlflowTask(luigi.Task):
         self.logger.info(f"Start {self.__class__.__name__}")
         mlflow.set_experiment(self.get_experiment_name())
         self.logger.info("Initialize done")
-        self._run()
+        return self._run()
 
     def search_for_mlflow_run(
         self,
