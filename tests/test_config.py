@@ -97,3 +97,23 @@ def test_load_from_dict():
         task = SomeTask()
         assert task.int_param == 2
         assert task.str_param == "hi"
+
+
+def test_load_integer_extvar(tmpdir):
+    ext_vars = {
+        "value": 1,
+    }
+    config_path = tmpdir.mkdir("sub").join("conifg.jsonnet")
+    with config_path.open("w") as fout:
+        fout.write("""
+    local value = std.extVar("value");
+    {
+        "SomeTask": {
+            "str_param": "hi",
+            "int_param": value,
+        }
+    }
+    """)
+    with JsonnetConfigLoader(external_variables=ext_vars).load(config_path):
+        task = SomeTask()
+        assert task.int_param == 1

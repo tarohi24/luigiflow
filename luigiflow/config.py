@@ -50,6 +50,11 @@ class JsonnetConfigLoader:
         default_factory=lambda: dict(),
     )  # Its type is equivalent to `JsonDict`, but semantically different.
 
+    def __post_init__(self):
+        self.external_variables = dict(self.external_variables)
+        for key in self.external_variables.keys():
+            self.external_variables[key] = str(self.external_variables[key])
+
     def load(self, path: PathLike) -> ConfigContext:
         try:
             json_str = _jsonnet.evaluate_file(
