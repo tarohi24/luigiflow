@@ -38,7 +38,6 @@ class TaskA(MlflowTask):
                 "out": (df, save_dataframe),
             }
         )
-        pass
 
 
 class TaskB(MlflowTask):
