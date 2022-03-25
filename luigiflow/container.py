@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from typing import Type, List, Dict
 
 from dependency_injector import providers
 from dependency_injector.containers import DynamicContainer
@@ -30,7 +29,7 @@ class DiContainer:
     def __post_init__(self):
         self.is_activated = False
 
-    def register_interface(self, interface_cls: Type[TaskInterface]) -> 'DiContainer':
+    def register_interface(self, interface_cls: type[TaskInterface]) -> 'DiContainer':
         if self.is_activated:
             raise InvalidOperation("You cannot register a new interface after activating the container")
         setattr(
@@ -43,12 +42,12 @@ class DiContainer:
         )
         return self
 
-    def activate_injection(self, modules: List[str]) -> 'DiContainer':
+    def activate_injection(self, modules: list[str]) -> 'DiContainer':
         self.is_activated = True
         self.container.wire(modules=modules)
         return self
 
-    def load_dependencies(self, dependencies: Dict[str, str]) -> 'DiContainer':
+    def load_dependencies(self, dependencies: dict[str, str]) -> 'DiContainer':
         """
         :param dependencies: `{experiemnt_name: subtask_name}`
         :return: self
@@ -62,7 +61,7 @@ class DiContainer:
         )
         return self
 
-    def resolve(self, interface_cls: Type[TaskInterface]) -> Type[MlflowTask]:
+    def resolve(self, interface_cls: type[TaskInterface]) -> type[MlflowTask]:
         exp_name = interface_cls.get_experiment_name()
         if not hasattr(self.container.config, exp_name):
             raise CannotSolveDependency()

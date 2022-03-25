@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import NoReturn, Dict, cast, Type
+from typing import NoReturn, cast
 
 import luigi
 import pytest
@@ -17,10 +17,10 @@ class AbsClass(TaskInterface, ABC):
         return "abs"
 
     @classmethod
-    def get_artifact_filenames(cls) -> Dict[str, str]:
+    def get_artifact_filenames(cls) -> dict[str, str]:
         return dict()
 
-    def requires(self) -> Dict[str, luigi.Task]:
+    def requires(self) -> dict[str, luigi.Task]:
         return dict()
 
     def _run(self) -> NoReturn:
@@ -54,14 +54,14 @@ class MainTask(MlflowTask):
         return "main"
 
     @classmethod
-    def get_artifact_filenames(cls) -> Dict[str, str]:
+    def get_artifact_filenames(cls) -> dict[str, str]:
         return dict()
 
     @inject
     def requires(
         self,
-        abs_task_cls: Type[AbsClass] = Provide["abs"],
-    ) -> Dict[str, luigi.Task]:
+        abs_task_cls: type[AbsClass] = Provide["abs"],
+    ) -> dict[str, luigi.Task]:
         return {
             "dep": abs_task_cls(),
         }

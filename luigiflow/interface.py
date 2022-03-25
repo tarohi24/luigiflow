@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import TypeVar, Type, Dict, cast
+from typing import TypeVar, cast
 
 import luigi
 from registrable import Registrable
@@ -23,7 +23,7 @@ class TaskInterface(MlflowTask, Registrable, ABC):
         """
         raise NotImplementedError()
 
-    def to_mlflow_tags(self) -> Dict[str, MlflowTagValue]:
+    def to_mlflow_tags(self) -> dict[str, MlflowTagValue]:
         base = MlflowTask.to_mlflow_tags(self)
         base['name'] = self.get_subtask_name()
         return base

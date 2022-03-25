@@ -3,14 +3,14 @@ import tempfile
 from dataclasses import dataclass, field
 from os import PathLike
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any
 
 import _jsonnet
 import toml
 from luigi.configuration import add_config_path
 from luigi.configuration.base_parser import BaseParser
 
-JsonDict = Dict[str, Any]
+JsonDict = dict[str, Any]
 
 
 class InvalidJsonnetFileError(Exception):
@@ -40,13 +40,13 @@ class ConfigContext:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.tmp_toml_path.unlink(missing_ok=True)
 
-    def get_dependencies(self, key: str = 'dependencies') -> Dict[str, str]:
+    def get_dependencies(self, key: str = 'dependencies') -> dict[str, str]:
         return self.data.get(key, dict())
 
 
 @dataclass
 class JsonnetConfigLoader:
-    external_variables: Dict[str, Any] = field(
+    external_variables: dict[str, Any] = field(
         default_factory=lambda: dict(),
     )  # Its type is equivalent to `JsonDict`, but semantically different.
 
@@ -67,7 +67,7 @@ class JsonnetConfigLoader:
         return self.load_from_dict(param_dict)
 
     @staticmethod
-    def load_from_dict(param_dict: Dict[str, Any]):
+    def load_from_dict(param_dict: dict[str, Any]):
         """
         I prefer to use this method rather than calling `ConfigContext` directly
         because I can hide `ConcigContext` from outside this module.

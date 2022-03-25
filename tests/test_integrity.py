@@ -1,7 +1,7 @@
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import NoReturn, Dict
+from typing import NoReturn
 
 import luigi
 import pandas as pd
@@ -23,12 +23,12 @@ class TaskA(MlflowTask):
         return "task_a"
 
     @classmethod
-    def get_artifact_filenames(cls) -> Dict[str, str]:
+    def get_artifact_filenames(cls) -> dict[str, str]:
         return {
             "out": "a.csv",
         }
 
-    def requires(self) -> Dict[str, luigi.Task]:
+    def requires(self) -> dict[str, luigi.Task]:
         return dict()
 
     def _run(self) -> NoReturn:
@@ -50,12 +50,12 @@ class TaskB(MlflowTask):
         return "b"
 
     @classmethod
-    def get_artifact_filenames(cls) -> Dict[str, str]:
+    def get_artifact_filenames(cls) -> dict[str, str]:
         return {
             "out_b": "out_b.txt",
         }
 
-    def requires(self) -> Dict[str, luigi.Task]:
+    def requires(self) -> dict[str, luigi.Task]:
         return {
             "a": TaskA(),
         }

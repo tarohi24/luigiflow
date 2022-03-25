@@ -1,6 +1,6 @@
 import datetime
 from dataclasses import dataclass
-from typing import Any, Callable, List, Tuple, Type, TypeVar, Union, cast
+from typing import Any, Callable, TypeVar, Union, cast
 
 MlflowTagValue = Union[str, int, float]
 T = TypeVar("T")
@@ -11,10 +11,10 @@ class MlflowTagSerializer:
     # T isn't V because V is a value type, whereas T is a parameter
     # `serializers` is not a dict because the order matters.
     # e.g. a `datetime` is also a `date`. Then it has to prioritize the `datetime` serializer.
-    serializers: List[Tuple[Type[T], Callable[[T], MlflowTagValue]]]
+    serializers: list[tuple[type[T], Callable[[T], MlflowTagValue]]]
 
     def serialize(self, val: Any) -> MlflowTagValue:
-        val_type: Type = type(val)
+        val_type: type = type(val)
         for typ, fn in self.serializers:
             if isinstance(val, typ):
                 return fn(val)

@@ -1,6 +1,6 @@
 from os import PathLike
 from pathlib import Path
-from typing import Optional, Dict, Any, Type, List, Union, Tuple
+from typing import Optional, Any
 
 import luigi
 import mlflow
@@ -9,17 +9,17 @@ from luigi.execution_summary import LuigiRunResult
 from luigiflow.config import JsonnetConfigLoader
 from luigiflow.task import MlflowTask
 
-RunReturn = Tuple[List[luigi.Task], Optional[LuigiRunResult]]
+RunReturn = tuple[list[luigi.Task], Optional[LuigiRunResult]]
 
 
 def run_multiple_tasks_of_single_task_cls(
-    task_cls: Type[MlflowTask],
-    params: List[Dict[str, Any]],
+    task_cls: type[MlflowTask],
+    params: list[dict[str, Any]],
     mlflow_tracking_uri: str,
     config_path: PathLike,
     local_scheduler: bool = True,
     create_experiment_if_not_existing: bool = False,
-    luigi_build_kwargs: Optional[Dict[str, Any]] = None,
+    luigi_build_kwargs: Optional[dict[str, Any]] = None,
     dry_run: bool = False,
 ) -> RunReturn:
     assert Path(config_path).exists()
@@ -57,7 +57,7 @@ def run_multiple_tasks_of_single_task_cls(
 
 
 def run(
-    task_cls: Type[MlflowTask],
+    task_cls: type[MlflowTask],
     **kwargs
 ) -> RunReturn:
     """

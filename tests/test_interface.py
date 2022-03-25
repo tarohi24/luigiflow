@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import NoReturn, Dict, Type
+from typing import NoReturn
 
 import luigi
 import pandas as pd
@@ -19,12 +19,12 @@ class AbstractTask(TaskInterface, ABC):
         return "dummy_exp"
 
     @classmethod
-    def get_artifact_filenames(cls) -> Dict[str, str]:
+    def get_artifact_filenames(cls) -> dict[str, str]:
         return {
             "dummy": "dummy.csv",
         }
 
-    def requires(self) -> Dict[str, luigi.Task]:
+    def requires(self) -> dict[str, luigi.Task]:
         return dict()
 
 
@@ -71,14 +71,14 @@ class AnotherTask(MlflowTask):
         pass
 
     @classmethod
-    def get_artifact_filenames(cls) -> Dict[str, str]:
+    def get_artifact_filenames(cls) -> dict[str, str]:
         pass
 
     @inject
     def requires(
         self,
-        abstract_task_cls: Type[AbstractTask] = Provide["dummy_exp"],
-    ) -> Dict[str, luigi.Task]:
+        abstract_task_cls: type[AbstractTask] = Provide["dummy_exp"],
+    ) -> dict[str, luigi.Task]:
         return {
             "dummy": abstract_task_cls(),
         }
