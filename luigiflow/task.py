@@ -2,7 +2,7 @@ import logging
 import os
 import tempfile
 from pathlib import Path
-from typing import Callable, Dict, List, NoReturn, Optional, Tuple, TypeVar, final, Collection, Set
+from typing import Callable, NoReturn, Optional, TypeVar, final
 
 import luigi
 import mlflow
@@ -23,7 +23,7 @@ class MlflowTask(luigi.Task):
     """
 
     @classmethod
-    def get_tags_to_exclude(cls) -> Set[str]:
+    def get_tags_to_exclude(cls) -> set[str]:
         return set()  # default
 
     @classmethod
@@ -38,7 +38,7 @@ class MlflowTask(luigi.Task):
         raise NotImplementedError()
 
     @classmethod
-    def get_artifact_filenames(cls) -> Dict[str, str]:
+    def get_artifact_filenames(cls) -> dict[str, str]:
         """
         :return: `{file_id: filename w/ an extension}`. `file_id` is an ID used only in this task.
         """
@@ -53,16 +53,16 @@ class MlflowTask(luigi.Task):
         return default_serializer
 
     # just to note types
-    def input(self) -> Dict[str, Dict[str, LocalTarget]]:
+    def input(self) -> dict[str, dict[str, LocalTarget]]:
         return super(MlflowTask, self).input()
 
-    def requires(self) -> Dict[str, luigi.Task]:
+    def requires(self) -> dict[str, luigi.Task]:
         """
         :return: A dictionary consisting of {task_name: task}
         """
         raise NotImplementedError()
 
-    def to_mlflow_tags(self) -> Dict[str, MlflowTagValue]:
+    def to_mlflow_tags(self) -> dict[str, MlflowTagValue]:
         """
         Serialize parameters of this task.
         By default, this method serialize all the parameters.
@@ -134,7 +134,7 @@ class MlflowTask(luigi.Task):
         self.logger.info(f"is_complete: {is_complete}")
         return is_complete
 
-    def output(self) -> Optional[Dict[str, LocalTarget]]:
+    def output(self) -> Optional[dict[str, LocalTarget]]:
         """
         :return: A dict consisting of artifact names and their paths.
         If this task isn't completed, this method returns None.
@@ -149,7 +149,7 @@ class MlflowTask(luigi.Task):
         # logging
         return {key: LocalTarget(str(p)) for key, p in paths.items()}
 
-    def to_mlflow_tags_w_parent_tags(self) -> Dict[str, MlflowTagValue]:
+    def to_mlflow_tags_w_parent_tags(self) -> dict[str, MlflowTagValue]:
         """
         Serialize tags, including its parents'.
         The format of dict keys is `{param_path}.{param_name}`,
@@ -158,13 +158,13 @@ class MlflowTask(luigi.Task):
         if not self.output_tags_recursively():
             return self.to_mlflow_tags()
 
-        def to_tags(task: MlflowTask) -> Dict[str, MlflowTagValue]:
+        def to_tags(task: MlflowTask) -> dict[str, MlflowTagValue]:
             tags = task.to_mlflow_tags()
             if task.requires() is None:
                 return tags
             elif len(task.requires()) == 0:
                 return tags
-            parent_tasks: Dict[str, MlflowTask] = {
+            parent_tasks: dict[str, MlflowTask] = {
                 key: val
                 for key, val in task.requires().items()
                 if isinstance(val, MlflowTask)
@@ -181,14 +181,14 @@ class MlflowTask(luigi.Task):
     @final
     def save_to_mlflow(
         self,
-        artifacts_and_save_funcs: Dict[str, Tuple[T, Callable[[T, str], None]]] = None,
-        metrics: Dict[str, float] = None,
+        artifacts_and_save_funcs: dict[str, tuple[T, Callable[[T, str], None]]] = None,
+        metrics: dict[str, float] = None,
         inherit_parent_tags: bool = True,
     ):
         """
         Register artifacts and/or metrics to mlflow.
         """
-        artifact_paths: List[str] = []
+        artifact_paths: list[str] = []
         artifacts_and_save_funcs = artifacts_and_save_funcs or dict()
         with mlflow.start_run():
             # Save artifacts

@@ -1,4 +1,4 @@
-from typing import NoReturn, Dict
+from typing import NoReturn
 
 import luigi
 import pandas as pd
@@ -17,12 +17,12 @@ class SomeTask(MlflowTask):
         return "example"
 
     @classmethod
-    def get_artifact_filenames(cls) -> Dict[str, str]:
+    def get_artifact_filenames(cls) -> dict[str, str]:
         return {
             "data": "data.csv",
         }
 
-    def requires(self) -> Dict[str, luigi.Task]:
+    def requires(self) -> dict[str, luigi.Task]:
         return dict()
 
     def _run(self) -> NoReturn:

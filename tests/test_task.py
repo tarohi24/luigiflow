@@ -1,6 +1,6 @@
 import datetime
 import pickle
-from typing import Dict, NoReturn, Optional, Set
+from typing import NoReturn, Optional
 from unittest import TestCase
 
 import luigi
@@ -24,7 +24,7 @@ def test_to_mlflow_tags(monkeypatch):
         optional_param: Optional[str] = luigi.Parameter(default=None)
 
         @classmethod
-        def get_tags_to_exclude(cls) -> Set[str]:
+        def get_tags_to_exclude(cls) -> set[str]:
             return {"param_int", "param_date", "param_large_value"}
 
     task = Task()
@@ -63,25 +63,25 @@ def test_to_tags_w_parents(monkeypatch):
     class TaskA(MlflowTask):
         param: str = luigi.Parameter(default="hi")
 
-        def requires(self) -> Dict[str, luigi.Task]:
+        def requires(self) -> dict[str, luigi.Task]:
             return dict()
 
     class TaskB(MlflowTask):
         value: int = luigi.IntParameter(default=1)
 
-        def requires(self) -> Dict[str, luigi.Task]:
+        def requires(self) -> dict[str, luigi.Task]:
             return {"aaa": TaskA()}
 
     class TaskC(MlflowTask):
         int_param: int = luigi.IntParameter(default=10)
 
-        def requires(self) -> Dict[str, luigi.Task]:
+        def requires(self) -> dict[str, luigi.Task]:
             return dict()
 
     class MainTask(MlflowTask):
         bool_param: bool = luigi.BoolParameter(default=False)
 
-        def requires(self) -> Dict[str, luigi.Task]:
+        def requires(self) -> dict[str, luigi.Task]:
             return {
                 "bbb": TaskB(),
                 "ccc": TaskC(),
@@ -99,7 +99,7 @@ def test_to_tags_w_parents(monkeypatch):
     class MainTaskWoRecursiveTags(MlflowTask):
         bool_param: bool = luigi.BoolParameter(default=True)
 
-        def requires(self) -> Dict[str, luigi.Task]:
+        def requires(self) -> dict[str, luigi.Task]:
             return {
                 "bbb": TaskB(),
                 "ccc": TaskC(),
@@ -140,13 +140,13 @@ def test_launch_server(artifacts_server):
             return "dummy"
 
         @classmethod
-        def get_artifact_filenames(cls) -> Dict[str, str]:
+        def get_artifact_filenames(cls) -> dict[str, str]:
             return {
                 "csv": "df.csv",
                 "pickle": "df.pickle",
             }
 
-        def requires(self) -> Dict[str, luigi.Task]:
+        def requires(self) -> dict[str, luigi.Task]:
             return dict()
 
         def _run(self) -> NoReturn:
