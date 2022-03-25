@@ -15,6 +15,7 @@ toml = "^0.10.2"
 registrable = "^0.0.4"
 dependency-injector = "^4.37.0"
 scipy = "^1.8.0"
+waitress = "2.1.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
