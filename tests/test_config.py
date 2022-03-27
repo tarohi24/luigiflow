@@ -3,7 +3,7 @@ from typing import NoReturn
 import luigi
 import pandas as pd
 
-from luigiflow.config import JsonnetConfigLoader
+from luigiflow.config.jsonnet import JsonnetConfigLoader
 from luigiflow.savers import save_dataframe
 from luigiflow.task import MlflowTask
 

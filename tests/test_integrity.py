@@ -1,4 +1,4 @@
-import json
+from datetime import datetime
 from datetime import datetime
 from pathlib import Path
 from typing import NoReturn
@@ -9,8 +9,11 @@ import pytest
 from luigi import LuigiStatusCode
 
 import luigiflow
-from luigiflow.config import InvalidJsonnetFileError, JsonnetConfigLoader
-from luigiflow.runner import run_multiple_tasks_of_single_task_cls
+from luigiflow.config.jsonnet import InvalidJsonnetFileError, JsonnetConfigLoader
+from luigiflow.config.run import RunnerConfig
+from luigiflow.experiment import Experiment
+from luigiflow.experiment_repository import ExperimentRepository
+from luigiflow.runner import Runner
 from luigiflow.savers import save_dataframe
 from luigiflow.task import MlflowTask
 
@@ -92,42 +95,42 @@ def test_run_multiple_tasks(artifacts_server, tmpdir):
                 }
             }
             ''')
-    kwargs = dict(
-        mlflow_tracking_uri=artifacts_server.url,
-        config_path=config_path,
-        local_scheduler=True,
-        create_experiment_if_not_existing=True,
+    runner = Runner(
+        config=RunnerConfig(
+            mlflow_tracking_uri=artifacts_server.url,
+            config_path=config_path,
+            use_local_scheduler=True,
+            create_experiment_if_not_existing=True,
+        ),
+        experiment_repository=ExperimentRepository(
+            experiments={
+                "a": Experiment(
+                    "a",
+                    task_classes={"main": TaskA},
+                ),
+            }
+        )
     )
     invalid_params = [
         {"DATE": "2021-11-11"},
         {"DATE_START": "2021-11-11"},
     ]
     with pytest.raises(InvalidJsonnetFileError):
-        run_multiple_tasks_of_single_task_cls(
-            task_cls=TaskA,
-            params=invalid_params,
-            **kwargs
-        )
+        runner.run("a", "main", params=invalid_params)
+
     # valid keys, invalid values
     invalid_params = [
         {"DATE_START": "hi!"},  # invalid
         {"DATE_START": "2021-11-11"},  # valid
     ]
     with pytest.raises(ValueError):
-        run_multiple_tasks_of_single_task_cls(
-            task_cls=TaskA,
-            params=invalid_params,
-            **kwargs
-        )
+        runner.run("a", "main", params=invalid_params)
+
     valid_params = [
         {"DATE_START": "2021-11-12"},  # valid
         {"DATE_START": "2021-11-11"},  # valid
     ]
-    tasks, res = run_multiple_tasks_of_single_task_cls(
-        task_cls=TaskA,
-        params=valid_params,
-        **kwargs
-    )
+    tasks, res = runner.run("a", "main", params=valid_params)
     assert len(tasks) == 2
     assert res.status == LuigiStatusCode.SUCCESS
     # Check if all the tasks ran

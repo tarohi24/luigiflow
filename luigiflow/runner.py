@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from os import PathLike
 from pathlib import Path
 from typing import Optional, Any
@@ -6,10 +7,47 @@ import luigi
 import mlflow
 from luigi.execution_summary import LuigiRunResult
 
-from luigiflow.config import JsonnetConfigLoader
+from luigiflow.config.run import RunnerConfig
+from luigiflow.experiment_repository import ExperimentRepository
 from luigiflow.task import MlflowTask
 
 RunReturn = tuple[list[luigi.Task], Optional[LuigiRunResult]]
+
+
+@dataclass
+class Runner:
+    config: RunnerConfig
+    experiment_repository: ExperimentRepository
+
+    def run(
+        self,
+        experiment_name: str,
+        experiment_sub_name: str,
+        params: list[dict[str, Any]],
+        dry_run: bool = False,
+    ) -> RunReturn:
+        tasks = self.experiment_repository.generate_tasks(
+            name=experiment_name,
+            sub_name=experiment_sub_name,
+            params=params,
+            context_config_path=self.config.config_path,
+        )
+        assert Path(self.config.config_path).exists()
+        mlflow.set_tracking_uri(self.config.mlflow_tracking_uri)
+        if mlflow.get_experiment_by_name(experiment_name) is None:
+            if self.config.create_experiment_if_not_existing:
+                mlflow.create_experiment(experiment_name)
+            else:
+                raise ValueError(f"Experiment {experiment_name} not found at {self.config.mlflow_tracking_uri}")
+        if dry_run:
+            return tasks, None
+        res = luigi.build(
+            tasks,
+            local_scheduler=self.config.use_local_scheduler,
+            detailed_summary=True,
+            **self.config.luigi_build_kwargs
+        )
+        return tasks, res
 
 
 def run_multiple_tasks_of_single_task_cls(
@@ -22,38 +60,7 @@ def run_multiple_tasks_of_single_task_cls(
     luigi_build_kwargs: Optional[dict[str, Any]] = None,
     dry_run: bool = False,
 ) -> RunReturn:
-    assert Path(config_path).exists()
-    luigi_build_kwargs = luigi_build_kwargs or dict()
-    mlflow.set_tracking_uri(mlflow_tracking_uri)
-    experiment_name: str = task_cls.get_experiment_name()
-    if mlflow.get_experiment_by_name(experiment_name) is None:
-        if create_experiment_if_not_existing:
-            mlflow.create_experiment(experiment_name)
-        else:
-            raise ValueError()  # TODO: error message
-
-    tasks = []
-    if len(params) > 0:
-        for param in params:
-            config_loader = JsonnetConfigLoader(external_variables=param)
-            with config_loader.load(config_path):
-                task = task_cls()
-                tasks.append(task)
-    else:
-        # no external params
-        config_loader = JsonnetConfigLoader()
-        with config_loader.load(config_path):
-            task = task_cls()
-            tasks.append(task)
-    if dry_run:
-        return tasks, None
-    res = luigi.build(
-        tasks,
-        local_scheduler=local_scheduler,
-        detailed_summary=True,
-        **luigi_build_kwargs
-    )
-    return tasks, res
+    ...
 
 
 def run(

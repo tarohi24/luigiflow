@@ -5,7 +5,7 @@ import luigi
 import pandas as pd
 from dependency_injector.wiring import inject, Provide
 
-from luigiflow.config import JsonnetConfigLoader
+from luigiflow.config.jsonnet import JsonnetConfigLoader
 from luigiflow.container import DiContainer
 from luigiflow.interface import TaskInterface
 from luigiflow.savers import save_dataframe
