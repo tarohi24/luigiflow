@@ -28,9 +28,6 @@ class DoNothingImpl(MlflowTask):
         protocols=[DoNothingProtocol, ],
     )
 
-    def requires(self) -> dict[str, luigi.Task]:
-        return dict()
-
     def _run(self) -> NoReturn:
         ...
 
@@ -74,8 +71,13 @@ def test_inject_dependencies():
         )
 
         @inject
-        def requires(self, task_cls: type[MlflowTask] = Provide["DoNothingProtocol"]) -> dict[str, luigi.Task]:
-            return {"1": task_cls()}
+        def requires(
+            self,
+            task_cls: type[MlflowTask] = Provide["DoNothingProtocol"],
+        ) -> dict[str, MlflowTaskProtocol]:
+            return {
+                "1": task_cls(),
+            }
 
         def _run(self) -> NoReturn:
             ...

@@ -31,7 +31,7 @@ class TaskConfig(BaseModel):
     output_tags_recursively: bool = Field(default=True)
 
 
-class MlflowTaskMeta(Register):
+class MlflowTaskMeta(Register, type(Protocol)):
 
     def __new__(mcs, classname: str, bases: tuple[type, ...], namespace: dict[str, Any]):
         cls = super(MlflowTaskMeta, mcs).__new__(mcs, classname, bases, namespace)
@@ -107,7 +107,7 @@ class MlflowTaskProtocol(Protocol):
     def enable_tqdm(self) -> NoReturn: ...
 
 
-class MlflowTask(luigi.Task, metaclass=MlflowTaskMeta):
+class MlflowTask(luigi.Task, MlflowTaskProtocol, metaclass=MlflowTaskMeta):
     """
     This is a luigi's task aiming to save artifacts and/or metrics to an mllfow expriment.
     """
@@ -158,7 +158,7 @@ class MlflowTask(luigi.Task, metaclass=MlflowTaskMeta):
         """
         :return: A dictionary consisting of {task_name: task}
         """
-        raise NotImplementedError()
+        return dict()
 
     def to_mlflow_tags(self) -> dict[str, MlflowTagValue]:
         """

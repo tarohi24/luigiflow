@@ -44,10 +44,6 @@ class TaskA(MlflowTask):
     def save_csv(self, path: Path):
         ...
 
-    @inject
-    def requires(self) -> dict[str, luigi.Task]:
-        return dict()
-
     def _run(self) -> NoReturn:
         df = pd.DataFrame()
         self.save_to_mlflow(
@@ -76,7 +72,7 @@ class TaskB(MlflowTask):
     def save_json(self, path: Path):
         ...
 
-    def requires(self, save_csv_task: type[MlflowTask] = Provide["SaveCsv"]) -> dict[str, luigi.Task]:
+    def requires(self, save_csv_task: type[MlflowTaskProtocol] = Provide["SaveCsv"]) -> dict[str, MlflowTaskProtocol]:
         return {
             "a": save_csv_task(),
         }

@@ -19,9 +19,6 @@ class SomeTask(MlflowTask):
         }
     )
 
-    def requires(self) -> dict[str, luigi.Task]:
-        return dict()
-
     def _run(self) -> NoReturn:
         df = pd.DataFrame([
             {"label": "A", "score": 1.1},

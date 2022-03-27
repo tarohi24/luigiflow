@@ -83,9 +83,6 @@ def test_to_tags_w_parents(monkeypatch):
             protocols=[],
         )
 
-        def requires(self) -> dict[str, luigi.Task]:
-            return dict()
-
         def _run(self) -> NoReturn:
             ...
 
@@ -96,8 +93,10 @@ def test_to_tags_w_parents(monkeypatch):
             protocols=[],
         )
 
-        def requires(self) -> dict[str, luigi.Task]:
-            return {"aaa": TaskA()}
+        def requires(self) -> dict[str, MlflowTaskProtocol]:
+            return {
+                "aaa": TaskA(),
+            }
 
         def _run(self) -> NoReturn:
             ...
@@ -109,9 +108,6 @@ def test_to_tags_w_parents(monkeypatch):
             protocols=[],
         )
 
-        def requires(self) -> dict[str, luigi.Task]:
-            return dict()
-
         def _run(self) -> NoReturn:
             ...
 
@@ -122,7 +118,7 @@ def test_to_tags_w_parents(monkeypatch):
             protocols=[],
         )
 
-        def requires(self) -> dict[str, luigi.Task]:
+        def requires(self) -> dict[str, MlflowTaskProtocol]:
             return {
                 "bbb": TaskB(),
                 "ccc": TaskC(),
@@ -147,7 +143,7 @@ def test_to_tags_w_parents(monkeypatch):
             output_tags_recursively=False,
         )
 
-        def requires(self) -> dict[str, luigi.Task]:
+        def requires(self) -> dict[str, MlflowTaskProtocol]:
             return {
                 "bbb": TaskB(),
                 "ccc": TaskC(),
@@ -187,9 +183,6 @@ def test_save_artifacts(artifacts_server):
             protocols=[],
         )
 
-        def requires(self) -> dict[str, luigi.Task]:
-            return dict()
-
         def _run(self) -> NoReturn:
             df = pd.DataFrame(
                 {
@@ -224,9 +217,6 @@ def test_save_artifacts_but_files_are_mismatched(artifacts_server):
                 "csv": "csv.csv",
             }
         )
-
-        def requires(self) -> dict[str, luigi.Task]:
-            return dict()
 
         def _run(self) -> NoReturn:
             self.save_to_mlflow(
