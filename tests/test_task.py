@@ -8,8 +8,8 @@ import pandas as pd
 import pytest
 from luigi import LocalTarget
 
-from luigiflow.utils.savers import save_dataframe, save_pickle
-from luigiflow.task import MlflowTask, TaskConfig
+from luigiflow.utils.savers import save_dataframe, save_pickle, save_json
+from luigiflow.task import MlflowTask, TaskConfig, TryingToSaveUndefinedArtifact
 
 
 def test_to_mlflow_tags(monkeypatch):
@@ -30,7 +30,6 @@ def test_to_mlflow_tags(monkeypatch):
         optional_param: Optional[str] = luigi.Parameter(default=None)
         config = TaskConfig(
             experiment_name="task",
-            sub_experiment_name="impl",
             protocols=[DummyProtocol, ],
             tags_to_exclude={"param_int", "param_date", "param_large_value"},
         )
@@ -64,32 +63,61 @@ def test_to_mlflow_tags(monkeypatch):
 
 
 def test_to_tags_w_parents(monkeypatch):
+
     class TaskA(MlflowTask):
         param: str = luigi.Parameter(default="hi")
+        config = TaskConfig(
+            experiment_name="dummy",
+            protocols=[],
+        )
 
         def requires(self) -> dict[str, luigi.Task]:
             return dict()
 
+        def _run(self) -> NoReturn:
+            ...
+
     class TaskB(MlflowTask):
         value: int = luigi.IntParameter(default=1)
+        config = TaskConfig(
+            experiment_name="dummy",
+            protocols=[],
+        )
 
         def requires(self) -> dict[str, luigi.Task]:
             return {"aaa": TaskA()}
 
+        def _run(self) -> NoReturn:
+            ...
+
     class TaskC(MlflowTask):
         int_param: int = luigi.IntParameter(default=10)
+        config = TaskConfig(
+            experiment_name="dummy",
+            protocols=[],
+        )
 
         def requires(self) -> dict[str, luigi.Task]:
             return dict()
 
+        def _run(self) -> NoReturn:
+            ...
+
     class MainTask(MlflowTask):
         bool_param: bool = luigi.BoolParameter(default=False)
+        config = TaskConfig(
+            experiment_name="dummy",
+            protocols=[],
+        )
 
         def requires(self) -> dict[str, luigi.Task]:
             return {
                 "bbb": TaskB(),
                 "ccc": TaskC(),
             }
+
+        def _run(self) -> NoReturn:
+            ...
 
     assert sorted(MainTask().to_mlflow_tags_w_parent_tags().items()) == sorted({
         "bool_param": 0,
@@ -98,10 +126,14 @@ def test_to_tags_w_parents(monkeypatch):
         "bbb.aaa.param": "hi",
     }.items())
 
-    # Test non-recurseive
-
+    # Test non-recursive outputs
     class MainTaskWoRecursiveTags(MlflowTask):
         bool_param: bool = luigi.BoolParameter(default=True)
+        config = TaskConfig(
+            experiment_name="dummy",
+            protocols=[],
+            output_tags_recursively=False,
+        )
 
         def requires(self) -> dict[str, luigi.Task]:
             return {
@@ -109,9 +141,8 @@ def test_to_tags_w_parents(monkeypatch):
                 "ccc": TaskC(),
             }
 
-        @classmethod
-        def output_tags_recursively(cls) -> bool:
-            return False
+        def _run(self) -> NoReturn:
+            ...
 
     task = MainTaskWoRecursiveTags()
     TestCase().assertDictEqual(
@@ -121,11 +152,7 @@ def test_to_tags_w_parents(monkeypatch):
         },
     )
 
-    # The top task output tags recursively, but one of its dependencies don't
-    def mock_return_false(*args, **kwargs):
-        return False
-
-    monkeypatch.setattr(TaskB, "output_tags_recursively", mock_return_false)
+    monkeypatch.setattr(TaskB, "output_tags_recursively", False)
     task = MainTask()
     TestCase().assertDictEqual(
         task.to_mlflow_tags_w_parent_tags(),
@@ -137,18 +164,16 @@ def test_to_tags_w_parents(monkeypatch):
     )
 
 
-def test_launch_server(artifacts_server):
+def test_save_artifacts(artifacts_server):
     class Task(MlflowTask):
-        @classmethod
-        def get_experiment_name(cls) -> str:
-            return "dummy"
-
-        @classmethod
-        def get_artifact_filenames(cls) -> dict[str, str]:
-            return {
+        config = TaskConfig(
+            experiment_name="dummy",
+            artifact_filenames={
                 "csv": "df.csv",
                 "pickle": "df.pickle",
-            }
+            },
+            protocols=[],
+        )
 
         def requires(self) -> dict[str, luigi.Task]:
             return dict()
@@ -157,7 +182,7 @@ def test_launch_server(artifacts_server):
             df = pd.DataFrame(
                 {
                     "a": [0, 1],
-                    "b": ["hi", "exmaple"],
+                    "b": ["hi", "example"],
                 }
             )
             self.save_to_mlflow(
@@ -176,3 +201,29 @@ def test_launch_server(artifacts_server):
     pd.read_csv(paths["csv"].path)
     with open(paths["pickle"].path, "rb") as fin:
         pickle.load(fin)
+
+
+def test_save_artifacts_but_files_are_mismatched(artifacts_server):
+    class InvalidTask(MlflowTask):
+        config = TaskConfig(
+            experiment_name="dummy",
+            protocols=[],
+            artifact_filenames={
+                "csv": "csv.csv",
+            }
+        )
+
+        def requires(self) -> dict[str, luigi.Task]:
+            return dict()
+
+        def _run(self) -> NoReturn:
+            self.save_to_mlflow(
+                artifacts_and_save_funcs={
+                    "json": (dict(), save_json),
+                }
+            )
+
+    task = InvalidTask()
+    assert task.output() is None
+    with pytest.raises(TryingToSaveUndefinedArtifact):
+        task.run()

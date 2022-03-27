@@ -19,6 +19,10 @@ from luigiflow.serializer import MlflowTagSerializer, MlflowTagValue, default_se
 T = TypeVar("T")
 
 
+class TryingToSaveUndefinedArtifact(Exception):
+    ...
+
+
 class TaskConfig(BaseModel):
     experiment_name: str
     protocols: list[type[Protocol]]
@@ -236,9 +240,11 @@ class MlflowTask(luigi.Task, metaclass=MlflowTaskMeta):
                 # Save artifacts
                 with tempfile.TemporaryDirectory() as tmpdir:
                     for name, (artifact, save_fn) in artifacts_and_save_funcs.items():
-                        out_path = os.path.join(
-                            tmpdir, self.get_artifact_filenames()[name]
-                        )
+                        try:
+                            output_file_name = self.get_artifact_filenames()[name]
+                        except KeyError:
+                            raise TryingToSaveUndefinedArtifact(f"Unknown file: {name}")
+                        out_path = os.path.join(tmpdir, output_file_name)
                         self.logger.info(f"Saving artifact to {out_path}")
                         save_fn(artifact, out_path)
                         artifact_paths.append(out_path)
