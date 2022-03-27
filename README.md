@@ -36,9 +36,12 @@ mlflow server \
 ```python
 from typing import Iterable, Protocol, runtime_checkable
 
+from luigiflow.task import MlflowTaskProtocol
 
+
+# you have to have `Protocol` as a base to define it as a protocol
 @runtime_checkable
-class OutputTextList(Protocol):
+class OutputTextList(MlflowTaskProtocol, Protocol):
 
     def load_texts(self) -> Iterable[str]:
         raise NotImplementedError

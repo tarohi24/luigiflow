@@ -4,19 +4,19 @@ import luigi
 import pytest
 from dependency_injector.wiring import inject, Provide
 
-from luigiflow.task import MlflowTask, TaskConfig
+from luigiflow.task import MlflowTask, TaskConfig, MlflowTaskProtocol
 from luigiflow.task_repository import TaskRepository, TaskWithTheSameNameAlreadyRegistered, InconsistentDependencies
 
 
 @runtime_checkable
-class DoNothingProtocol(Protocol):
+class DoNothingProtocol(MlflowTaskProtocol, Protocol):
 
     def do_nothing(self):
         raise NotImplementedError()
 
 
 @runtime_checkable
-class AnotherProtocol(Protocol):
+class AnotherProtocol(MlflowTaskProtocol, Protocol):
 
     def method_a(self):
         raise NotImplementedError()

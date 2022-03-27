@@ -9,13 +9,17 @@ import pytest
 from luigi import LocalTarget
 
 from luigiflow.utils.savers import save_dataframe, save_pickle, save_json
-from luigiflow.task import MlflowTask, TaskConfig, TryingToSaveUndefinedArtifact
+from luigiflow.task import MlflowTask, TaskConfig, TryingToSaveUndefinedArtifact, MlflowTaskProtocol
+
+
+def test_task_protocol_and_implementation_consistent():
+    assert issubclass(MlflowTask, MlflowTaskProtocol)
 
 
 def test_to_mlflow_tags(monkeypatch):
 
     @runtime_checkable
-    class DummyProtocol(Protocol):
+    class DummyProtocol(MlflowTaskProtocol, Protocol):
 
         def do_nothing(self):
             raise NotImplementedError()
@@ -59,8 +63,12 @@ def test_to_mlflow_tags(monkeypatch):
     assert task.to_mlflow_tags() == expected
 
     class AnotherTask(Task):
-        strange_param = luigi.Parameter(default=Task())
-        config = TaskConfig()
+        strange_param = luigi.Parameter(default=Task())  # invalid value
+        config = TaskConfig(
+            experiment_name="dummy",
+            protocols=[],
+            artifact_filenames=dict(),
+        )
 
     with pytest.raises(TypeError):
         AnotherTask().to_mlflow_tags()

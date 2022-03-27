@@ -11,20 +11,20 @@ from luigi import LuigiStatusCode
 from luigiflow.config.jsonnet import InvalidJsonnetFileError, JsonnetConfigLoader
 from luigiflow.config.run import RunnerConfig
 from luigiflow.runner import Runner
-from luigiflow.task import MlflowTask, TaskConfig
+from luigiflow.task import MlflowTask, TaskConfig, MlflowTaskProtocol
 from luigiflow.task_repository import TaskRepository
 from luigiflow.utils.savers import save_dataframe
 
 
 @runtime_checkable
-class SaveCsv(Protocol):
+class SaveCsv(MlflowTaskProtocol, Protocol):
 
     def save_csv(self, path: Path):
         raise NotImplementedError()
 
 
 @runtime_checkable
-class SaveJson(Protocol):
+class SaveJson(MlflowTaskProtocol, Protocol):
 
     def save_json(self, path: Path):
         raise NotImplementedError()
@@ -36,16 +36,13 @@ class TaskA(MlflowTask):
     config = TaskConfig(
         experiment_name="task",
         protocols=[SaveCsv, ],
+        artifact_filenames={
+            "csv": "a.csv",
+        }
     )
 
     def save_csv(self, path: Path):
         ...
-
-    @classmethod
-    def get_artifact_filenames(cls) -> dict[str, str]:
-        return {
-            "csv": "a.csv",
-        }
 
     @inject
     def requires(self) -> dict[str, luigi.Task]:
@@ -67,6 +64,10 @@ class TaskB(MlflowTask):
     config = TaskConfig(
         experiment_name="task",
         protocols=[SaveCsv, SaveJson],
+        artifact_filenames={
+            "csv": "out_b.csv",
+            "json": "json.json",
+        }
     )
 
     def save_csv(self, path: Path):
@@ -74,13 +75,6 @@ class TaskB(MlflowTask):
 
     def save_json(self, path: Path):
         ...
-
-    @classmethod
-    def get_artifact_filenames(cls) -> dict[str, str]:
-        return {
-            "csv": "out_b.csv",
-            "json": "json.json",
-        }
 
     def requires(self, save_csv_task: type[MlflowTask] = Provide["SaveCsv"]) -> dict[str, luigi.Task]:
         return {
