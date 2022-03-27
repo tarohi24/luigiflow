@@ -1,33 +1,53 @@
-import json
 from datetime import datetime
 from pathlib import Path
-from typing import NoReturn
+from typing import NoReturn, Protocol, runtime_checkable
 
 import luigi
 import pandas as pd
 import pytest
+from dependency_injector.wiring import inject, Provide
 from luigi import LuigiStatusCode
 
-import luigiflow
-from luigiflow.config import InvalidJsonnetFileError, JsonnetConfigLoader
-from luigiflow.runner import run_multiple_tasks_of_single_task_cls
-from luigiflow.savers import save_dataframe
-from luigiflow.task import MlflowTask
+from luigiflow.config.jsonnet import InvalidJsonnetFileError, JsonnetConfigLoader
+from luigiflow.config.run import RunnerConfig
+from luigiflow.runner import Runner
+from luigiflow.task import MlflowTask, TaskConfig
+from luigiflow.task_repository import TaskRepository
+from luigiflow.utils.savers import save_dataframe
+
+
+@runtime_checkable
+class SaveCsv(Protocol):
+
+    def save_csv(self, path: Path):
+        raise NotImplementedError()
+
+
+@runtime_checkable
+class SaveJson(Protocol):
+
+    def save_json(self, path: Path):
+        raise NotImplementedError()
 
 
 class TaskA(MlflowTask):
-    date_start: datetime.date = luigi.DateParameter()
+    value: float = luigi.FloatParameter()
 
-    @classmethod
-    def get_experiment_name(cls) -> str:
-        return "task_a"
+    config = TaskConfig(
+        experiment_name="task",
+        protocols=[SaveCsv, ],
+    )
+
+    def save_csv(self, path: Path):
+        ...
 
     @classmethod
     def get_artifact_filenames(cls) -> dict[str, str]:
         return {
-            "out": "a.csv",
+            "csv": "a.csv",
         }
 
+    @inject
     def requires(self) -> dict[str, luigi.Task]:
         return dict()
 
@@ -35,116 +55,121 @@ class TaskA(MlflowTask):
         df = pd.DataFrame()
         self.save_to_mlflow(
             artifacts_and_save_funcs={
-                "out": (df, save_dataframe),
+                "csv": (df, save_dataframe),
             }
         )
 
 
 class TaskB(MlflowTask):
-    value: float = luigi.FloatParameter()
+    date_start: datetime.date = luigi.DateParameter()
     int_value: int = luigi.IntParameter()
     message: str = luigi.Parameter()
+    config = TaskConfig(
+        experiment_name="task",
+        protocols=[SaveCsv, SaveJson],
+    )
 
-    @classmethod
-    def get_experiment_name(cls) -> str:
-        return "b"
+    def save_csv(self, path: Path):
+        ...
+
+    def save_json(self, path: Path):
+        ...
 
     @classmethod
     def get_artifact_filenames(cls) -> dict[str, str]:
         return {
-            "out_b": "out_b.txt",
+            "csv": "out_b.csv",
+            "json": "json.json",
         }
 
-    def requires(self) -> dict[str, luigi.Task]:
+    def requires(self, save_csv_task: type[MlflowTask] = Provide["SaveCsv"]) -> dict[str, luigi.Task]:
         return {
-            "a": TaskA(),
+            "a": save_csv_task(),
         }
 
     def _run(self) -> NoReturn:
         df = pd.DataFrame()
         self.save_to_mlflow(
             artifacts_and_save_funcs={
-                "out_b": (df, save_dataframe),
+                "csv": (df, save_dataframe),
+                "json": (df, save_dataframe),
             }
         )
 
 
-def test_run(artifacts_server):
-    config_path = Path(__file__).parent / 'fixture/config.jsonnet'
-    tasks, res = luigiflow.run(
-        task_cls=TaskB,
-        mlflow_tracking_uri=artifacts_server.url,
-        config_path=config_path,
-        local_scheduler=True,
-        create_experiment_if_not_existing=True,
-    )
-    assert len(tasks) == 1
-    assert res.status == LuigiStatusCode.SUCCESS
-
-
-def test_run_multiple_tasks(artifacts_server, tmpdir):
+@pytest.fixture()
+def runner(artifacts_server, tmpdir) -> Runner:
     config_path = tmpdir.mkdir("sub").join("config.jsonnet")
     with config_path.open("w") as fout:
         fout.write('''
-            {
-                "TaskA": {
-                    "date_start": std.extVar("DATE_START"),
+                {
+                    "TaskA": {
+                        "value": 3.0,
+                    },
+                    "TaskB": {
+                        "date_start": std.extVar("DATE_START"),
+                        "int_value": 1,
+                        "message": "Hello!",
+                    }
                 }
+                ''')
+    runner = Runner(
+        config=RunnerConfig(
+            mlflow_tracking_uri=artifacts_server.url,
+            config_path=config_path,
+            use_local_scheduler=True,
+            create_experiment_if_not_existing=True,
+        ),
+        experiment_repository=TaskRepository(
+            task_classes=[TaskA, TaskB],
+            dependencies={
+                "SaveCsv": "TaskA",
+                "SaveJson": "TaskB",
             }
-            ''')
-    kwargs = dict(
-        mlflow_tracking_uri=artifacts_server.url,
-        config_path=config_path,
-        local_scheduler=True,
-        create_experiment_if_not_existing=True,
+        )
+    )
+    return runner
+
+
+def test_run_multiple_tasks(runner):
+    runner.experiment_repository.inject_dependencies(
+        module_to_wire=[__name__, ],
     )
     invalid_params = [
         {"DATE": "2021-11-11"},
         {"DATE_START": "2021-11-11"},
     ]
     with pytest.raises(InvalidJsonnetFileError):
-        run_multiple_tasks_of_single_task_cls(
-            task_cls=TaskA,
-            params=invalid_params,
-            **kwargs
-        )
+        runner.run("SaveJson", external_params=invalid_params)
+
     # valid keys, invalid values
     invalid_params = [
         {"DATE_START": "hi!"},  # invalid
         {"DATE_START": "2021-11-11"},  # valid
     ]
     with pytest.raises(ValueError):
-        run_multiple_tasks_of_single_task_cls(
-            task_cls=TaskA,
-            params=invalid_params,
-            **kwargs
-        )
+        runner.run("SaveJson", external_params=invalid_params)
+
     valid_params = [
         {"DATE_START": "2021-11-12"},  # valid
         {"DATE_START": "2021-11-11"},  # valid
     ]
-    tasks, res = run_multiple_tasks_of_single_task_cls(
-        task_cls=TaskA,
-        params=valid_params,
-        **kwargs
-    )
+    tasks, res = runner.run("SaveJson", external_params=valid_params)
     assert len(tasks) == 2
     assert res.status == LuigiStatusCode.SUCCESS
     # Check if all the tasks ran
     for param in valid_params:
         config_loader = JsonnetConfigLoader(external_variables=param)
-        with config_loader.load(config_path):
+        with config_loader.load(runner.config.config_path):
             assert TaskA().complete()
 
 
-def test_dry_run(artifacts_server):
-    config_path = Path(__file__).parent / 'fixture/config.jsonnet'
-    tasks, res = luigiflow.run(
-        task_cls=TaskB,
-        mlflow_tracking_uri=artifacts_server.url,
-        config_path=config_path,
-        local_scheduler=True,
-        create_experiment_if_not_existing=True,
+def test_dry_run(runner):
+    tasks, res = runner.run(
+        protocol_name="SaveJson",
+        external_params=[
+            {"DATE_START": "2021-11-11"},
+        ],
         dry_run=True,
     )
     assert len(tasks) == 1
