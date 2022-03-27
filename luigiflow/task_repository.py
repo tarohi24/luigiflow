@@ -87,16 +87,16 @@ class TaskRepository:
     def generate_tasks(
         self,
         protocol_name: str,
-        params: list[dict[str, Any]],
+        external_params: list[dict[str, Any]],
         context_config_path: Path,
     ) -> list[MlflowTask]:
-        if not isinstance(params, list):
+        if not isinstance(external_params, list):
             raise ValueError("Pass a list of kwargs `params`")
         proto = self._protocols[protocol_name]
         task_class = proto.get(self.dependencies[protocol_name])
         tasks = []
-        if len(params) > 0:
-            for param in params:
+        if len(external_params) > 0:
+            for param in external_params:
                 config_loader = JsonnetConfigLoader(external_variables=param)
                 with config_loader.load(context_config_path):
                     task = task_class()

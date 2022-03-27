@@ -8,13 +8,12 @@ import pytest
 from dependency_injector.wiring import inject, Provide
 from luigi import LuigiStatusCode
 
-import luigiflow
 from luigiflow.config.jsonnet import InvalidJsonnetFileError, JsonnetConfigLoader
 from luigiflow.config.run import RunnerConfig
 from luigiflow.runner import Runner
-from luigiflow.utils.savers import save_dataframe
 from luigiflow.task import MlflowTask, TaskConfig
 from luigiflow.task_repository import TaskRepository
+from luigiflow.utils.savers import save_dataframe
 
 
 @runtime_checkable
@@ -98,21 +97,22 @@ class TaskB(MlflowTask):
         )
 
 
-def test_run_multiple_tasks(artifacts_server, tmpdir):
+@pytest.fixture()
+def runner(artifacts_server, tmpdir) -> Runner:
     config_path = tmpdir.mkdir("sub").join("config.jsonnet")
     with config_path.open("w") as fout:
         fout.write('''
-            {
-                "TaskA": {
-                    "value": 3.0,
-                },
-                "TaskB": {
-                    "date_start": std.extVar("DATE_START"),
-                    "int_value": 1,
-                    "message": "Hello!",
+                {
+                    "TaskA": {
+                        "value": 3.0,
+                    },
+                    "TaskB": {
+                        "date_start": std.extVar("DATE_START"),
+                        "int_value": 1,
+                        "message": "Hello!",
+                    }
                 }
-            }
-            ''')
+                ''')
     runner = Runner(
         config=RunnerConfig(
             mlflow_tracking_uri=artifacts_server.url,
@@ -128,6 +128,10 @@ def test_run_multiple_tasks(artifacts_server, tmpdir):
             }
         )
     )
+    return runner
+
+
+def test_run_multiple_tasks(runner):
     runner.experiment_repository.inject_dependencies(
         module_to_wire=[__name__, ],
     )
@@ -136,7 +140,7 @@ def test_run_multiple_tasks(artifacts_server, tmpdir):
         {"DATE_START": "2021-11-11"},
     ]
     with pytest.raises(InvalidJsonnetFileError):
-        runner.run("SaveJson", params=invalid_params)
+        runner.run("SaveJson", external_params=invalid_params)
 
     # valid keys, invalid values
     invalid_params = [
@@ -144,30 +148,28 @@ def test_run_multiple_tasks(artifacts_server, tmpdir):
         {"DATE_START": "2021-11-11"},  # valid
     ]
     with pytest.raises(ValueError):
-        runner.run("SaveJson", params=invalid_params)
+        runner.run("SaveJson", external_params=invalid_params)
 
     valid_params = [
         {"DATE_START": "2021-11-12"},  # valid
         {"DATE_START": "2021-11-11"},  # valid
     ]
-    tasks, res = runner.run("SaveJson", params=valid_params)
+    tasks, res = runner.run("SaveJson", external_params=valid_params)
     assert len(tasks) == 2
     assert res.status == LuigiStatusCode.SUCCESS
     # Check if all the tasks ran
     for param in valid_params:
         config_loader = JsonnetConfigLoader(external_variables=param)
-        with config_loader.load(config_path):
+        with config_loader.load(runner.config.config_path):
             assert TaskA().complete()
 
 
-def test_dry_run(artifacts_server):
-    config_path = Path(__file__).parent / 'fixture/config.jsonnet'
-    tasks, res = luigiflow.run(
-        task_cls=TaskB,
-        mlflow_tracking_uri=artifacts_server.url,
-        config_path=config_path,
-        local_scheduler=True,
-        create_experiment_if_not_existing=True,
+def test_dry_run(runner):
+    tasks, res = runner.run(
+        protocol_name="SaveJson",
+        external_params=[
+            {"DATE_START": "2021-11-11"},
+        ],
         dry_run=True,
     )
     assert len(tasks) == 1

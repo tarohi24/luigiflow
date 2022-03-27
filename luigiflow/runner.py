@@ -20,12 +20,13 @@ class Runner:
     def run(
         self,
         protocol_name: str,
-        params: list[dict[str, Any]],
+        external_params: list[dict[str, Any]] = None,
         dry_run: bool = False,
     ) -> RunReturn:
+        external_params = external_params or []
         tasks = self.experiment_repository.generate_tasks(
             protocol_name=protocol_name,
-            params=params,
+            external_params=external_params,
             context_config_path=self.config.config_path,
         )
         assert Path(self.config.config_path).exists()
