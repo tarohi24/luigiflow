@@ -1,6 +1,6 @@
 import datetime
 import pickle
-from typing import NoReturn, Optional
+from typing import NoReturn, Optional, Protocol
 from unittest import TestCase
 
 import luigi
@@ -13,6 +13,12 @@ from luigiflow.task import MlflowTask, TaskConfig
 
 
 def test_to_mlflow_tags(monkeypatch):
+
+    class DummyProtocol(Protocol):
+
+        def do_nothing(self):
+            raise NotImplementedError()
+
     class Task(MlflowTask):
         param_int: int = luigi.IntParameter(default=10)
         param_str: str = luigi.Parameter(default="hi")
@@ -24,6 +30,8 @@ def test_to_mlflow_tags(monkeypatch):
         optional_param: Optional[str] = luigi.Parameter(default=None)
         config = TaskConfig(
             experiment_name="task",
+            sub_experiment_name="impl",
+            protocols=[DummyProtocol, ],
             tags_to_exclude={"param_int", "param_date", "param_large_value"},
         )
 

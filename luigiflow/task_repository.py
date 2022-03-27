@@ -10,6 +10,14 @@ from luigiflow.config.jsonnet import JsonnetConfigLoader
 from luigiflow.task import MlflowTask
 
 
+class TaskWithTheSameNameAlreadyRegistered(Exception):
+    ...
+
+
+class InconsistentDependencies(Exception):
+    ...
+
+
 @dataclass
 class ProtocolRepositoryItem:
     protocol_type: type[Protocol]
@@ -17,22 +25,21 @@ class ProtocolRepositoryItem:
 
     def register(self, task_class: type[MlflowTask]):
         if not issubclass(task_class, self.protocol_type):
-            raise ValueError(f"{task_class} is not a {self.protocol_type}")
+            raise TypeError(f"{task_class} is not a {self.protocol_type}")
         key = task_class.__name__
         if key in self._task_class_dict:
-            raise ValueError(f"{key} already registered in {self.protocol_type}")
+            raise TaskWithTheSameNameAlreadyRegistered(f"{key} already registered in {self.protocol_type}")
         self._task_class_dict[key] = task_class
 
     def get(self, task_name: str) -> type[MlflowTask]:
-        try:
-            return self._task_class_dict[task_name]
-        except KeyError:
-            raise ValueError(f"{task_name} is not registered to protocol {self.protocol_type.__name__}")
+        return self._task_class_dict[task_name]
 
 
 @dataclass(init=False)
 class TaskRepository:
-    _experiments_dict: dict[str, dict[str, type[MlflowTask]]]
+    """
+    Note that this repository doesn't manage experiment names becuase that's not necessary.
+    """
     _protocols: dict[str, ProtocolRepositoryItem]
     dependencies: dict[str, str]
 
@@ -42,16 +49,8 @@ class TaskRepository:
         dependencies: dict[str, str],
     ):
         # use for loop to check if there are duplicated names
-        self._experiments_dict = defaultdict(dict)
         self._protocols = dict()
         for task_cls in task_classes:
-            # register experiment
-            exp_name = task_cls.get_experiment_name()
-            task_name = task_cls.__name__
-            sub_dict = self._experiments_dict[exp_name]
-            if task_name in sub_dict:
-                raise ValueError(f"Duplicated (experiment, sub_experiment) = {(exp_name, sub_name)}")
-            sub_dict[task_name] = task_cls
             # register protocol
             for prt in task_cls.get_protocols():
                 key = prt.__name__
@@ -65,9 +64,14 @@ class TaskRepository:
         dep_keys = set(self.dependencies.keys())
         prt_keys = set(self._protocols.keys())
         if len(diff := (dep_keys - prt_keys)) > 0:
-            raise ValueError(f"Unknown dependencies: {diff}")
+            raise InconsistentDependencies(f"Unknown dependencies: {diff}")
         if len(diff := (prt_keys - dep_keys)) > 0:
-            raise ValueError(f"Dependencies not specified: {diff}")
+            raise InconsistentDependencies(f"Dependencies not specified: {diff}")
+        for protocol_name, task_name in self.dependencies.items():
+            try:
+                self._protocols[protocol_name].get(task_name)
+            except KeyError:
+                raise InconsistentDependencies(f"{task_name} not registered to {protocol_name}")
 
     def inject_dependencies(self, module_to_wire: list[str] = None):
         module_to_wire = module_to_wire or []

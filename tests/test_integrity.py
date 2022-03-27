@@ -36,7 +36,6 @@ class TaskA(MlflowTask):
 
     config = TaskConfig(
         experiment_name="task",
-        sub_experiment_name="a",
         protocols=[SaveCsv, ],
     )
 
@@ -68,7 +67,6 @@ class TaskB(MlflowTask):
     message: str = luigi.Parameter()
     config = TaskConfig(
         experiment_name="task",
-        sub_experiment_name="b",
         protocols=[SaveCsv, SaveJson],
     )
 

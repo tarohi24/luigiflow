@@ -22,6 +22,7 @@ T = TypeVar("T")
 class TaskConfig(BaseModel):
     experiment_name: str
     protocols: list[type[Protocol]]
+    artifact_filenames: dict[str, str] = Field(default_factory=dict)
     tags_to_exclude: set[str] = Field(default_factory=set)
     output_tags_recursively: bool = Field(default=True)
 
@@ -34,6 +35,8 @@ class MlflowTaskMeta(Register):
             config: TaskConfig = namespace["config"]
         except KeyError:
             raise ValueError(f"{classname} doesn't have a Config.")
+        if (config.experiment_name == "") and classname != "MlflowTask":  # empty value only allowed for the base class
+            raise ValueError(f"Experiment name not set for {classname}")
         cls.experiment_name = config.experiment_name
         cls.protocols = config.protocols
         # check types
@@ -42,6 +45,7 @@ class MlflowTaskMeta(Register):
                 raise ValueError(f"{cls} is not a {prt}")
         cls.tags_to_exclude = config.tags_to_exclude
         cls.output_tags_recursively = config.output_tags_recursively
+        cls.artifact_filenames = config.artifact_filenames
         return cls
 
 
@@ -73,11 +77,12 @@ class MlflowTask(luigi.Task, metaclass=MlflowTaskMeta):
         return cls.experiment_name
 
     @classmethod
+    @final
     def get_artifact_filenames(cls) -> dict[str, str]:
         """
         :return: `{file_id: filename w/ an extension}`. `file_id` is an ID used only in this task.
         """
-        raise NotImplementedError()
+        return cls.artifact_filenames
 
     @classmethod
     def get_tag_serializer(cls) -> MlflowTagSerializer:
