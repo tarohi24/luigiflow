@@ -1,7 +1,10 @@
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Protocol, Type
+
+from dependency_injector import providers
+from dependency_injector.containers import DynamicContainer
 
 from luigiflow.config.jsonnet import JsonnetConfigLoader
 from luigiflow.task import MlflowTask
@@ -21,7 +24,10 @@ class ProtocolRepositoryItem:
         self._task_class_dict[key] = task_class
 
     def get(self, task_name: str) -> type[MlflowTask]:
-        return self._task_class_dict[task_name]
+        try:
+            return self._task_class_dict[task_name]
+        except KeyError:
+            raise ValueError(f"{task_name} is not registered to protocol {self.protocol_type.__name__}")
 
 
 @dataclass(init=False)
@@ -62,6 +68,15 @@ class TaskRepository:
             raise ValueError(f"Unknown dependencies: {diff}")
         if len(diff := (prt_keys - dep_keys)) > 0:
             raise ValueError(f"Dependencies not specified: {diff}")
+
+    def inject_dependencies(self, module_to_wire: list[str] = None):
+        module_to_wire = module_to_wire or []
+        # inject dependencies
+        container = DynamicContainer()
+        for protocol_name, repo in self._protocols.items():
+            default_task: type[MlflowTask] = repo.get(self.dependencies[protocol_name])
+            setattr(container, protocol_name, providers.Object(default_task))
+        container.wire(module_to_wire)
 
     def generate_tasks(
         self,

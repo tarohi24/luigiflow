@@ -5,6 +5,7 @@ from typing import NoReturn, Protocol, runtime_checkable
 import luigi
 import pandas as pd
 import pytest
+from dependency_injector.wiring import inject, Provide
 from luigi import LuigiStatusCode
 
 import luigiflow
@@ -31,15 +32,13 @@ class SaveJson(Protocol):
 
 
 class TaskA(MlflowTask):
-    date_start: datetime.date = luigi.DateParameter()
+    value: float = luigi.FloatParameter()
+
     config = TaskConfig(
         experiment_name="task",
         sub_experiment_name="a",
-        protocols=[SaveCsv, SaveJson],
+        protocols=[SaveCsv, ],
     )
-
-    def save_json(self, path: Path):
-        ...
 
     def save_csv(self, path: Path):
         ...
@@ -48,11 +47,48 @@ class TaskA(MlflowTask):
     def get_artifact_filenames(cls) -> dict[str, str]:
         return {
             "csv": "a.csv",
-            "json": "a.json",
         }
 
+    @inject
     def requires(self) -> dict[str, luigi.Task]:
         return dict()
+
+    def _run(self) -> NoReturn:
+        df = pd.DataFrame()
+        self.save_to_mlflow(
+            artifacts_and_save_funcs={
+                "csv": (df, save_dataframe),
+            }
+        )
+
+
+class TaskB(MlflowTask):
+    date_start: datetime.date = luigi.DateParameter()
+    int_value: int = luigi.IntParameter()
+    message: str = luigi.Parameter()
+    config = TaskConfig(
+        experiment_name="task",
+        sub_experiment_name="b",
+        protocols=[SaveCsv, SaveJson],
+    )
+
+    def save_csv(self, path: Path):
+        ...
+
+    def save_json(self, path: Path):
+        ...
+
+    @classmethod
+    def get_artifact_filenames(cls) -> dict[str, str]:
+        return {
+            "csv": "out_b.csv",
+            "json": "json.json",
+        }
+
+    def requires(self, save_csv_task: type[MlflowTask] = Provide["SaveCsv"]) -> dict[str, luigi.Task]:
+        return {
+            "a": save_csv_task(),
+        }
 
     def _run(self) -> NoReturn:
         df = pd.DataFrame()
@@ -64,46 +100,18 @@ class TaskA(MlflowTask):
         )
 
 
-class TaskB(MlflowTask):
-    value: float = luigi.FloatParameter()
-    int_value: int = luigi.IntParameter()
-    message: str = luigi.Parameter()
-    config = TaskConfig(
-        experiment_name="task",
-        sub_experiment_name="b",
-        protocols=[SaveCsv, ],
-    )
-
-    def save_csv(self, path: Path):
-        ...
-
-    @classmethod
-    def get_artifact_filenames(cls) -> dict[str, str]:
-        return {
-            "csv": "out_b.csv",
-        }
-
-    def requires(self) -> dict[str, luigi.Task]:
-        return {
-            "a": TaskA(),
-        }
-
-    def _run(self) -> NoReturn:
-        df = pd.DataFrame()
-        self.save_to_mlflow(
-            artifacts_and_save_funcs={
-                "csv": (df, save_dataframe),
-            }
-        )
-
-
 def test_run_multiple_tasks(artifacts_server, tmpdir):
     config_path = tmpdir.mkdir("sub").join("config.jsonnet")
     with config_path.open("w") as fout:
         fout.write('''
             {
                 "TaskA": {
+                    "value": 3.0,
+                },
+                "TaskB": {
                     "date_start": std.extVar("DATE_START"),
+                    "int_value": 1,
+                    "message": "Hello!",
                 }
             }
             ''')
@@ -117,10 +125,13 @@ def test_run_multiple_tasks(artifacts_server, tmpdir):
         experiment_repository=TaskRepository(
             task_classes=[TaskA, TaskB],
             dependencies={
-                "SaveCsv": "TaskB",
-                "SaveJson": "TaskA",
+                "SaveCsv": "TaskA",
+                "SaveJson": "TaskB",
             }
         )
+    )
+    runner.experiment_repository.inject_dependencies(
+        module_to_wire=[__name__, ],
     )
     invalid_params = [
         {"DATE": "2021-11-11"},
