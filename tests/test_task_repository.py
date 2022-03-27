@@ -34,6 +34,28 @@ class DoNothingImpl(MlflowTask):
         ...
 
 
+class NewTask(MlflowTask):
+    config = TaskConfig(
+        experiment_name="x",
+        protocols=[AnotherProtocol, ],
+    )
+
+    @inject
+    def requires(
+        self,
+        task_cls: type[MlflowTask] = Provide["DoNothingProtocol"],
+    ) -> dict[str, MlflowTaskProtocol]:
+        return {
+            "1": task_cls(),
+        }
+
+    def _run(self) -> NoReturn:
+        ...
+
+    def method_a(self):
+        ...
+
+
 def test_duplicated_tasks():
     with pytest.raises(TaskWithTheSameNameAlreadyRegistered):
         TaskRepository(
@@ -62,33 +84,31 @@ def test_inconsistent_tasks_and_dependencies():
 
 
 def test_inject_dependencies():
-
-    class NewTask(MlflowTask):
-        config = TaskConfig(
-            experiment_name="x",
-            protocols=[AnotherProtocol, ],
-        )
-
-        @inject
-        def requires(
-            self,
-            task_cls: type[MlflowTask] = Provide["DoNothingProtocol"],
-        ) -> dict[str, MlflowTaskProtocol]:
-            return {
-                "1": task_cls(),
-            }
-
-        def _run(self) -> NoReturn:
-            ...
-
-        def method_a(self):
-            ...
-
-    TaskRepository(
+    repo = TaskRepository(
         task_classes=[NewTask, DoNothingImpl],
         dependencies={
             "AnotherProtocol": "NewTask",
             "DoNothingProtocol": "DoNothingImpl",
         }
     )
+    repo.inject_dependencies(module_to_wire=[__name__, ])
 
+
+def test_ignore_missing_dependencies():
+    TaskRepository(
+        task_classes=[DoNothingImpl, NewTask],
+        dependencies={
+            # The dependency of AnotherTask is missing
+            "DoNothingProtocol": "DoNothingImpl",
+        },
+        ignore_missing_dependencies=True,
+    )
+    with pytest.raises(InconsistentDependencies):
+        TaskRepository(
+            task_classes=[DoNothingImpl, NewTask],
+            dependencies={
+                # The dependency of AnotherTask is missing
+                "DoNothingProtocol": "DoNothingImpl",
+            },
+            ignore_missing_dependencies=False,
+        )

@@ -46,6 +46,7 @@ class TaskRepository:
         self,
         task_classes: list[type[MlflowTask]],
         dependencies: dict[str, str],
+        ignore_missing_dependencies: bool = False,
     ):
         # use for loop to check if there are duplicated names
         self._protocols = dict()
@@ -64,8 +65,9 @@ class TaskRepository:
         prt_keys = set(self._protocols.keys())
         if len(diff := (dep_keys - prt_keys)) > 0:
             raise InconsistentDependencies(f"Unknown dependencies: {diff}")
-        if len(diff := (prt_keys - dep_keys)) > 0:
-            raise InconsistentDependencies(f"Dependencies not specified: {diff}")
+        if not ignore_missing_dependencies:
+            if len(diff := (prt_keys - dep_keys)) > 0:
+                raise InconsistentDependencies(f"Dependencies not specified: {diff}")
         for protocol_name, task_name in self.dependencies.items():
             try:
                 self._protocols[protocol_name].get(task_name)
