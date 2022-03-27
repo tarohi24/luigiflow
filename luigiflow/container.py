@@ -22,14 +22,17 @@ def initialize_container() -> DynamicContainer():
 
 
 @dataclass
-class DiContainer:
+class TaskDependencyResolver:
+    """
+    DEPRECATED
+    """
     container: DynamicContainer = field(default_factory=initialize_container)
     is_activated: bool = field(init=False)
 
     def __post_init__(self):
         self.is_activated = False
 
-    def register_interface(self, interface_cls: type[TaskInterface]) -> 'DiContainer':
+    def register_interface(self, interface_cls: type[TaskInterface]) -> 'TaskDependencyResolver':
         if self.is_activated:
             raise InvalidOperation("You cannot register a new interface after activating the container")
         setattr(
@@ -42,12 +45,12 @@ class DiContainer:
         )
         return self
 
-    def activate_injection(self, modules: list[str]) -> 'DiContainer':
+    def activate_injection(self, modules: list[str]) -> 'TaskDependencyResolver':
         self.is_activated = True
         self.container.wire(modules=modules)
         return self
 
-    def load_dependencies(self, dependencies: dict[str, str]) -> 'DiContainer':
+    def load_dependencies(self, dependencies: dict[str, str]) -> 'TaskDependencyResolver':
         """
         :param dependencies: `{experiemnt_name: subtask_name}`
         :return: self

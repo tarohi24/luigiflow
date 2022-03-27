@@ -6,7 +6,7 @@ import pandas as pd
 from dependency_injector.wiring import inject, Provide
 
 from luigiflow.config.jsonnet import JsonnetConfigLoader
-from luigiflow.container import DiContainer
+from luigiflow.container import TaskDependencyResolver
 from luigiflow.interface import TaskInterface
 from luigiflow.savers import save_dataframe
 from luigiflow.task import MlflowTask
@@ -100,7 +100,7 @@ def test_change_implementation(tmpdir):
         """)
     config_loader = JsonnetConfigLoader()
     with config_loader.load(config_path) as context:
-        container = DiContainer()
+        container = TaskDependencyResolver()
         container.load_dependencies(dependencies=context.get_dependencies())
         container.register_interface(AbstractTask)
         container.activate_injection(modules=[__name__, ])

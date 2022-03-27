@@ -5,7 +5,7 @@ import luigi
 import pytest
 from dependency_injector.wiring import inject, Provide
 
-from luigiflow.container import DiContainer, InvalidOperation, CannotSolveDependency
+from luigiflow.container import TaskDependencyResolver, InvalidOperation, CannotSolveDependency
 from luigiflow.interface import TaskInterface
 from luigiflow.task import MlflowTask
 
@@ -71,7 +71,7 @@ class MainTask(MlflowTask):
 
 
 def test_injection():
-    container = DiContainer()
+    container = TaskDependencyResolver()
     container.load_dependencies(
         {
             "abs": "B",
@@ -83,7 +83,7 @@ def test_injection():
     assert cast(ImplB, dep_task).get_subtask_name() == "B"  # Don't test with `isinstance`
 
     # test with modifying order of the initialization
-    new_container = DiContainer()
+    new_container = TaskDependencyResolver()
     new_container.load_dependencies(
         {
             "abs": "A",
@@ -97,7 +97,7 @@ def test_injection():
 
 
 def test_invalid_injection_order():
-    container = DiContainer()
+    container = TaskDependencyResolver()
     container.activate_injection(modules=[__name__])
     with pytest.raises(InvalidOperation):
         container.register_interface(AbsClass)
@@ -110,7 +110,7 @@ def test_invalid_injection_order():
 
 
 def test_resolve_interface():
-    container = DiContainer()
+    container = TaskDependencyResolver()
     with pytest.raises(CannotSolveDependency):
         container.resolve(AbsClass)
     container.register_interface(AbsClass)

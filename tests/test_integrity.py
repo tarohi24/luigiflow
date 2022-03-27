@@ -12,7 +12,7 @@ import luigiflow
 from luigiflow.config.jsonnet import InvalidJsonnetFileError, JsonnetConfigLoader
 from luigiflow.config.run import RunnerConfig
 from luigiflow.experiment import Experiment
-from luigiflow.experiment_repository import ExperimentRepository
+from luigiflow.experiments_repository import ExperimentsRepository
 from luigiflow.runner import Runner
 from luigiflow.savers import save_dataframe
 from luigiflow.task import MlflowTask
@@ -102,12 +102,15 @@ def test_run_multiple_tasks(artifacts_server, tmpdir):
             use_local_scheduler=True,
             create_experiment_if_not_existing=True,
         ),
-        experiment_repository=ExperimentRepository(
+        experiment_repository=ExperimentsRepository(
             experiments={
                 "a": Experiment(
                     "a",
                     task_classes={"main": TaskA},
                 ),
+            },
+            dependencies={
+                "a": "main",
             }
         )
     )
@@ -116,7 +119,7 @@ def test_run_multiple_tasks(artifacts_server, tmpdir):
         {"DATE_START": "2021-11-11"},
     ]
     with pytest.raises(InvalidJsonnetFileError):
-        runner.run("a", "main", params=invalid_params)
+        runner.run("a", params=invalid_params)
 
     # valid keys, invalid values
     invalid_params = [
@@ -124,13 +127,13 @@ def test_run_multiple_tasks(artifacts_server, tmpdir):
         {"DATE_START": "2021-11-11"},  # valid
     ]
     with pytest.raises(ValueError):
-        runner.run("a", "main", params=invalid_params)
+        runner.run("a", params=invalid_params)
 
     valid_params = [
         {"DATE_START": "2021-11-12"},  # valid
         {"DATE_START": "2021-11-11"},  # valid
     ]
-    tasks, res = runner.run("a", "main", params=valid_params)
+    tasks, res = runner.run("a", params=valid_params)
     assert len(tasks) == 2
     assert res.status == LuigiStatusCode.SUCCESS
     # Check if all the tasks ran
