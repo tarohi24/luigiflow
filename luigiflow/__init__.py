@@ -4,10 +4,3 @@ import os
 
 # This parameter needs to be set before loading any luigi module.
 os.environ["LUIGI_CONFIG_PARSER"] = "toml"
-
-from .runner import run
-
-
-__all__ = [
-    "run",
-]
