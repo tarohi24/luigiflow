@@ -10,7 +10,7 @@ from luigiflow.utils.testing import get_safe_port, launch_mlflow_server, Artifac
 LOCALHOST = "127.0.0.1"
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 def artifacts_server():
     with tempfile.TemporaryDirectory() as tmpdir:
         port = get_safe_port()

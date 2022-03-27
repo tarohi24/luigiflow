@@ -79,7 +79,7 @@ class MlflowTaskProtocol(Protocol):
     # just to note types
     def input(self) -> dict[str, dict[str, LocalTarget]]: ...
 
-    def requires(self) -> dict[str, luigi.Task]: ...
+    def requires(self) -> dict[str, "MlflowTaskProtocol"]: ...
 
     def to_mlflow_tags(self) -> dict[str, MlflowTagValue]: ...
 
@@ -154,7 +154,7 @@ class MlflowTask(luigi.Task, metaclass=MlflowTaskMeta):
     def input(self) -> dict[str, dict[str, LocalTarget]]:
         return super(MlflowTask, self).input()
 
-    def requires(self) -> dict[str, luigi.Task]:
+    def requires(self) -> dict[str, MlflowTaskProtocol]:
         """
         :return: A dictionary consisting of {task_name: task}
         """
