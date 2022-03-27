@@ -47,11 +47,11 @@ class TaskRepository:
         for task_cls in task_classes:
             # register experiment
             exp_name = task_cls.get_experiment_name()
+            task_name = task_cls.__name__
             sub_dict = self._experiments_dict[exp_name]
-            sub_name = task_cls.get_subtask_name()
-            if sub_name in sub_dict:
+            if task_name in sub_dict:
                 raise ValueError(f"Duplicated (experiment, sub_experiment) = {(exp_name, sub_name)}")
-            sub_dict[sub_name] = task_cls
+            sub_dict[task_name] = task_cls
             # register protocol
             for prt in task_cls.get_protocols():
                 key = prt.__name__
