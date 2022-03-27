@@ -8,8 +8,8 @@ import pandas as pd
 import pytest
 from luigi import LocalTarget
 
-from luigiflow.utils.savers import save_dataframe, save_pickle, save_json
 from luigiflow.task import MlflowTask, TaskConfig, TryingToSaveUndefinedArtifact, MlflowTaskProtocol
+from luigiflow.utils.savers import save_dataframe, save_pickle, save_json
 
 
 def test_task_protocol_and_implementation_consistent():

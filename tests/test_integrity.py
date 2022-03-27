@@ -5,7 +5,7 @@ from typing import NoReturn, Protocol, runtime_checkable
 import luigi
 import pandas as pd
 import pytest
-from dependency_injector.wiring import inject, Provide
+from dependency_injector.wiring import Provide
 from luigi import LuigiStatusCode
 
 from luigiflow.config.jsonnet import InvalidJsonnetFileError, JsonnetConfigLoader

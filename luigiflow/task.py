@@ -23,36 +23,6 @@ class TryingToSaveUndefinedArtifact(Exception):
     ...
 
 
-class TaskConfig(BaseModel):
-    experiment_name: str
-    protocols: list[type[Protocol]]
-    artifact_filenames: dict[str, str] = Field(default_factory=dict)
-    tags_to_exclude: set[str] = Field(default_factory=set)
-    output_tags_recursively: bool = Field(default=True)
-
-
-class MlflowTaskMeta(Register, type(Protocol)):
-
-    def __new__(mcs, classname: str, bases: tuple[type, ...], namespace: dict[str, Any]):
-        cls = super(MlflowTaskMeta, mcs).__new__(mcs, classname, bases, namespace)
-        try:
-            config: TaskConfig = namespace["config"]
-        except KeyError:
-            raise ValueError(f"{classname} doesn't have a Config.")
-        if (config.experiment_name == "") and classname != "MlflowTask":  # empty value only allowed for the base class
-            raise ValueError(f"Experiment name not set for {classname}")
-        cls.experiment_name = config.experiment_name
-        cls.protocols = config.protocols
-        # check types
-        for prt in cls.protocols:
-            if not issubclass(cls, prt):
-                raise ValueError(f"{cls} is not a {prt}")
-        cls.tags_to_exclude = config.tags_to_exclude
-        cls.output_tags_recursively = config.output_tags_recursively
-        cls.artifact_filenames = config.artifact_filenames
-        return cls
-
-
 @runtime_checkable
 class MlflowTaskProtocol(Protocol):
     """
@@ -105,6 +75,37 @@ class MlflowTaskProtocol(Protocol):
     def logger(self) -> logging.Logger: ...
 
     def enable_tqdm(self) -> NoReturn: ...
+
+
+class TaskConfig(BaseModel):
+    experiment_name: str
+    protocols: list[type[MlflowTaskProtocol]]
+    artifact_filenames: dict[str, str] = Field(default_factory=dict)
+    tags_to_exclude: set[str] = Field(default_factory=set)
+    output_tags_recursively: bool = Field(default=True)
+
+
+class MlflowTaskMeta(Register, type(Protocol)):
+
+    def __new__(mcs, classname: str, bases: tuple[type, ...], namespace: dict[str, Any]):
+        cls = super(MlflowTaskMeta, mcs).__new__(mcs, classname, bases, namespace)
+        try:
+            config: TaskConfig = namespace["config"]
+        except KeyError:
+            raise ValueError(f"{classname} doesn't have a Config.")
+        if (config.experiment_name == "") and classname != "MlflowTask":  # empty value only allowed for the base class
+            raise ValueError(f"Experiment name not set for {classname}")
+        cls.experiment_name = config.experiment_name
+        cls.protocols = config.protocols
+        # check types
+        for prt in cls.protocols:
+            if not issubclass(cls, prt):
+                raise ValueError(f"{cls} is not a {prt}")
+        cls.tags_to_exclude = config.tags_to_exclude
+        cls.output_tags_recursively = config.output_tags_recursively
+        cls.artifact_filenames = config.artifact_filenames
+        return cls
+
 
 
 class MlflowTask(luigi.Task, MlflowTaskProtocol, metaclass=MlflowTaskMeta):

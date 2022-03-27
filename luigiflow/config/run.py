@@ -1,6 +1,6 @@
-from os import PathLike
 from pathlib import Path
-from typing import Optional, Any, Union
+from pathlib import Path
+from typing import Any, Union
 
 from pydantic import BaseModel, HttpUrl, Field
 

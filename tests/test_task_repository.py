@@ -1,6 +1,5 @@
 from typing import Protocol, NoReturn, runtime_checkable
 
-import luigi
 import pytest
 from dependency_injector.wiring import inject, Provide
 

@@ -1,7 +1,6 @@
-from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Protocol, Type
+from typing import Any, Protocol
 
 from dependency_injector import providers
 from dependency_injector.containers import DynamicContainer
