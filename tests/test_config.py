@@ -11,15 +11,13 @@ from luigiflow.task import MlflowTask, TaskConfig
 class SomeTask(MlflowTask):
     int_param: int = luigi.IntParameter()
     str_param: str = luigi.Parameter()
-    conifg = TaskConfig(
+    config = TaskConfig(
         experiment_name="some",
-    )
-
-    @classmethod
-    def get_artifact_filenames(cls) -> dict[str, str]:
-        return {
+        protocols=[],
+        artifact_filenames={
             "data": "data.csv",
         }
+    )
 
     def requires(self) -> dict[str, luigi.Task]:
         return dict()

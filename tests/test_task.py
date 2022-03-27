@@ -1,6 +1,6 @@
 import datetime
 import pickle
-from typing import NoReturn, Optional, Protocol
+from typing import NoReturn, Optional, Protocol, runtime_checkable
 from unittest import TestCase
 
 import luigi
@@ -14,6 +14,7 @@ from luigiflow.task import MlflowTask, TaskConfig, TryingToSaveUndefinedArtifact
 
 def test_to_mlflow_tags(monkeypatch):
 
+    @runtime_checkable
     class DummyProtocol(Protocol):
 
         def do_nothing(self):
@@ -33,6 +34,9 @@ def test_to_mlflow_tags(monkeypatch):
             protocols=[DummyProtocol, ],
             tags_to_exclude={"param_int", "param_date", "param_large_value"},
         )
+
+        def do_nothing(self):
+            ...
 
     task = Task()
     TestCase().assertDictEqual(
