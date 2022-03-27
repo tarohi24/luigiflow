@@ -2,13 +2,15 @@ import logging
 import os
 import tempfile
 from pathlib import Path
-from typing import Callable, NoReturn, Optional, TypeVar, final
+from typing import Callable, NoReturn, Optional, TypeVar, final, Any, Protocol
 
 import luigi
 import mlflow
 from luigi import LocalTarget
+from luigi.task_register import Register
 from mlflow.entities import Experiment, Run
 from mlflow.protos.service_pb2 import ACTIVE_ONLY, RunStatus
+from pydantic import BaseModel, Field
 from tqdm.auto import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
@@ -17,32 +19,74 @@ from luigiflow.serializer import MlflowTagSerializer, MlflowTagValue, default_se
 T = TypeVar("T")
 
 
-class MlflowTask(luigi.Task):
+class TryingToSaveUndefinedArtifact(Exception):
+    ...
+
+
+class TaskConfig(BaseModel):
+    experiment_name: str
+    protocols: list[type[Protocol]]
+    artifact_filenames: dict[str, str] = Field(default_factory=dict)
+    tags_to_exclude: set[str] = Field(default_factory=set)
+    output_tags_recursively: bool = Field(default=True)
+
+
+class MlflowTaskMeta(Register):
+
+    def __new__(mcs, classname: str, bases: tuple[type, ...], namespace: dict[str, Any]):
+        cls = super(MlflowTaskMeta, mcs).__new__(mcs, classname, bases, namespace)
+        try:
+            config: TaskConfig = namespace["config"]
+        except KeyError:
+            raise ValueError(f"{classname} doesn't have a Config.")
+        if (config.experiment_name == "") and classname != "MlflowTask":  # empty value only allowed for the base class
+            raise ValueError(f"Experiment name not set for {classname}")
+        cls.experiment_name = config.experiment_name
+        cls.protocols = config.protocols
+        # check types
+        for prt in cls.protocols:
+            if not issubclass(cls, prt):
+                raise ValueError(f"{cls} is not a {prt}")
+        cls.tags_to_exclude = config.tags_to_exclude
+        cls.output_tags_recursively = config.output_tags_recursively
+        cls.artifact_filenames = config.artifact_filenames
+        return cls
+
+
+class MlflowTask(luigi.Task, metaclass=MlflowTaskMeta):
     """
     This is a luigi's task aiming to save artifacts and/or metrics to an mllfow expriment.
     """
+    config = TaskConfig(
+        experiment_name="",  # dummy
+        protocols=[],
+    )
 
     @classmethod
+    @final
+    def get_protocols(cls) -> list[Protocol]:
+        return cls.protocols
+
+    @classmethod
+    @final
     def get_tags_to_exclude(cls) -> set[str]:
-        return set()  # default
+        return cls.tags_to_exclude
 
     @classmethod
-    def output_tags_recursively(cls) -> bool:
-        return True  # default
-
-    @classmethod
+    @final
     def get_experiment_name(cls) -> str:
         """
         :return: name of the mlflow experiment corresponding to this task.
         """
-        raise NotImplementedError()
+        return cls.experiment_name
 
     @classmethod
+    @final
     def get_artifact_filenames(cls) -> dict[str, str]:
         """
         :return: `{file_id: filename w/ an extension}`. `file_id` is an ID used only in this task.
         """
-        raise NotImplementedError()
+        return cls.artifact_filenames
 
     @classmethod
     def get_tag_serializer(cls) -> MlflowTagSerializer:
@@ -78,7 +122,7 @@ class MlflowTask(luigi.Task):
             for name in self.get_param_names()
             if (
                 (val := getattr(self, name)) is not None
-                and name not in self.get_tags_to_exclude()
+                and name not in self.tags_to_exclude
             )
         }
 
@@ -155,7 +199,7 @@ class MlflowTask(luigi.Task):
         The format of dict keys is `{param_path}.{param_name}`,
         where `param_path` represents the relative path.
         """
-        if not self.output_tags_recursively():
+        if not self.output_tags_recursively:
             return self.to_mlflow_tags()
 
         def to_tags(task: MlflowTask) -> dict[str, MlflowTagValue]:
@@ -196,9 +240,11 @@ class MlflowTask(luigi.Task):
                 # Save artifacts
                 with tempfile.TemporaryDirectory() as tmpdir:
                     for name, (artifact, save_fn) in artifacts_and_save_funcs.items():
-                        out_path = os.path.join(
-                            tmpdir, self.get_artifact_filenames()[name]
-                        )
+                        try:
+                            output_file_name = self.get_artifact_filenames()[name]
+                        except KeyError:
+                            raise TryingToSaveUndefinedArtifact(f"Unknown file: {name}")
+                        out_path = os.path.join(tmpdir, output_file_name)
                         self.logger.info(f"Saving artifact to {out_path}")
                         save_fn(artifact, out_path)
                         artifact_paths.append(out_path)

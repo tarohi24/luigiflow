@@ -3,24 +3,21 @@ from typing import NoReturn
 import luigi
 import pandas as pd
 
-from luigiflow.config import JsonnetConfigLoader
-from luigiflow.savers import save_dataframe
-from luigiflow.task import MlflowTask
+from luigiflow.config.jsonnet import JsonnetConfigLoader
+from luigiflow.utils.savers import save_dataframe
+from luigiflow.task import MlflowTask, TaskConfig
 
 
 class SomeTask(MlflowTask):
     int_param: int = luigi.IntParameter()
     str_param: str = luigi.Parameter()
-
-    @classmethod
-    def get_experiment_name(cls) -> str:
-        return "example"
-
-    @classmethod
-    def get_artifact_filenames(cls) -> dict[str, str]:
-        return {
+    config = TaskConfig(
+        experiment_name="some",
+        protocols=[],
+        artifact_filenames={
             "data": "data.csv",
         }
+    )
 
     def requires(self) -> dict[str, luigi.Task]:
         return dict()
