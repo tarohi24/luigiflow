@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from os import PathLike
 from pathlib import Path
 from typing import Optional, Any
 
@@ -9,7 +8,6 @@ from luigi.execution_summary import LuigiRunResult
 
 from luigiflow.config.run import RunnerConfig
 from luigiflow.task_repository import TaskRepository
-from luigiflow.task import MlflowTask
 
 RunReturn = tuple[list[luigi.Task], Optional[LuigiRunResult]]
 
@@ -47,33 +45,3 @@ class Runner:
             **self.config.luigi_build_kwargs
         )
         return tasks, res
-
-
-def run_multiple_tasks_of_single_task_cls(
-    task_cls: type[MlflowTask],
-    params: list[dict[str, Any]],
-    mlflow_tracking_uri: str,
-    config_path: PathLike,
-    local_scheduler: bool = True,
-    create_experiment_if_not_existing: bool = False,
-    luigi_build_kwargs: Optional[dict[str, Any]] = None,
-    dry_run: bool = False,
-) -> RunReturn:
-    ...
-
-
-def run(
-    task_cls: type[MlflowTask],
-    **kwargs
-) -> RunReturn:
-    """
-    Run a task without ext params
-    :param task_cls:
-    :param kwargs:
-    :return:
-    """
-    return run_multiple_tasks_of_single_task_cls(
-        task_cls=task_cls,
-        params=list(),
-        **kwargs
-    )

@@ -5,7 +5,7 @@ from pathlib import Path
 import mlflow
 import pytest
 
-from luigiflow.testing import get_safe_port, launch_mlflow_server, ArtifactsServer
+from luigiflow.utils.testing import get_safe_port, launch_mlflow_server, ArtifactsServer
 
 LOCALHOST = "127.0.0.1"
 

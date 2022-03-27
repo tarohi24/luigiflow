@@ -75,6 +75,8 @@ class TaskRepository:
         container = DynamicContainer()
         for protocol_name, repo in self._protocols.items():
             default_task: type[MlflowTask] = repo.get(self.dependencies[protocol_name])
+            # Don't use `providers.Factory(lambda: default)` since it returns the latest `default`,
+            # not the one at the time that `default` is specified
             setattr(container, protocol_name, providers.Object(default_task))
         container.wire(module_to_wire)
 

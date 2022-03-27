@@ -12,7 +12,7 @@ import luigiflow
 from luigiflow.config.jsonnet import InvalidJsonnetFileError, JsonnetConfigLoader
 from luigiflow.config.run import RunnerConfig
 from luigiflow.runner import Runner
-from luigiflow.savers import save_dataframe
+from luigiflow.utils.savers import save_dataframe
 from luigiflow.task import MlflowTask, TaskConfig
 from luigiflow.task_repository import TaskRepository
 

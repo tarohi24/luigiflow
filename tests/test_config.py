@@ -4,7 +4,7 @@ import luigi
 import pandas as pd
 
 from luigiflow.config.jsonnet import JsonnetConfigLoader
-from luigiflow.savers import save_dataframe
+from luigiflow.utils.savers import save_dataframe
 from luigiflow.task import MlflowTask, TaskConfig
 
 

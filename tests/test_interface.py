@@ -8,7 +8,7 @@ from dependency_injector.wiring import inject, Provide
 from luigiflow.config.jsonnet import JsonnetConfigLoader
 from luigiflow.container import TaskDependencyResolver
 from luigiflow.interface import TaskInterface
-from luigiflow.savers import save_dataframe
+from luigiflow.utils.savers import save_dataframe
 from luigiflow.task import MlflowTask
 
 

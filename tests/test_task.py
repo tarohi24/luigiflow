@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 from luigi import LocalTarget
 
-from luigiflow.savers import save_dataframe, save_pickle
+from luigiflow.utils.savers import save_dataframe, save_pickle
 from luigiflow.task import MlflowTask, TaskConfig
 
 
