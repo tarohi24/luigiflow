@@ -2,7 +2,7 @@ import logging
 import os
 import tempfile
 from pathlib import Path
-from typing import Callable, NoReturn, Optional, TypeVar, final, Any
+from typing import Callable, NoReturn, Optional, TypeVar, final, Any, Protocol
 
 import luigi
 import mlflow
@@ -21,8 +21,10 @@ T = TypeVar("T")
 
 class TaskConfig(BaseModel):
     experiment_name: Optional[str] = Field(default=None)
+    sub_experiment_nmae: Optional[str] = Field(default=None)
+    protocols: list[type[Protocol]] = Field(default_factory=list)
     tags_to_exclude: set[str] = Field(default_factory=set)
-    output_tags_recursively: bool = True
+    output_tags_recursively: bool = Field(default=True)
 
 
 class MlflowTaskMeta(Register):
@@ -34,6 +36,8 @@ class MlflowTaskMeta(Register):
         except KeyError:
             raise ValueError(f"{classname} doesn't have a Config.")
         cls.experiment_name = config.experiment_name
+        cls.sub_experiment_name = config.sub_experiment_nmae
+        cls.protocols = config.protocols
         cls.tags_to_exclude = config.tags_to_exclude
         cls.output_tags_recursively = config.output_tags_recursively
         return cls
@@ -47,6 +51,11 @@ class MlflowTask(luigi.Task, metaclass=MlflowTaskMeta):
 
     @classmethod
     @final
+    def get_protocols(cls) -> list[Protocol]:
+        return cls.protocols
+
+    @classmethod
+    @final
     def get_tags_to_exclude(cls) -> set[str]:
         return cls.tags_to_exclude
 
@@ -57,6 +66,11 @@ class MlflowTask(luigi.Task, metaclass=MlflowTaskMeta):
         :return: name of the mlflow experiment corresponding to this task.
         """
         return cls.experiment_name
+
+    @classmethod
+    @final
+    def get_subtask_name(cls) -> str:
+        return cls.sub_experiment_name
 
     @classmethod
     def get_artifact_filenames(cls) -> dict[str, str]:

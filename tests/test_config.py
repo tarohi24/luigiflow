@@ -5,16 +5,15 @@ import pandas as pd
 
 from luigiflow.config.jsonnet import JsonnetConfigLoader
 from luigiflow.savers import save_dataframe
-from luigiflow.task import MlflowTask
+from luigiflow.task import MlflowTask, TaskConfig
 
 
 class SomeTask(MlflowTask):
     int_param: int = luigi.IntParameter()
     str_param: str = luigi.Parameter()
-
-    @classmethod
-    def get_experiment_name(cls) -> str:
-        return "example"
+    conifg = TaskConfig(
+        experiment_name="some",
+    )
 
     @classmethod
     def get_artifact_filenames(cls) -> dict[str, str]:

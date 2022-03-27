@@ -5,14 +5,13 @@ import luigi
 import pytest
 from dependency_injector.wiring import inject, Provide
 
-from luigiflow.task import MlflowTask
+from luigiflow.task import MlflowTask, TaskConfig
 
 
 class AbsClass(MlflowTask, ABC):
-
-    @classmethod
-    def get_experiment_name(cls) -> str:
-        return "abs"
+    config = TaskConfig(
+        experiment_name="abs",
+    )
 
     @classmethod
     def get_artifact_filenames(cls) -> dict[str, str]:
@@ -68,7 +67,7 @@ class MainTask(MlflowTask):
         pass
 
 
-def test_injection():
+def test_resolve_dependencies():
     container = TaskDependencyResolver()
     container.load_dependencies(
         {

@@ -8,7 +8,7 @@ import mlflow
 from luigi.execution_summary import LuigiRunResult
 
 from luigiflow.config.run import RunnerConfig
-from luigiflow.experiments_repository import ExperimentsRepository
+from luigiflow.task_repository import TaskRepository
 from luigiflow.task import MlflowTask
 
 RunReturn = tuple[list[luigi.Task], Optional[LuigiRunResult]]
@@ -17,7 +17,7 @@ RunReturn = tuple[list[luigi.Task], Optional[LuigiRunResult]]
 @dataclass
 class Runner:
     config: RunnerConfig
-    experiment_repository: ExperimentsRepository
+    experiment_repository: TaskRepository
 
     def run(
         self,
