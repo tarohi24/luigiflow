@@ -21,16 +21,17 @@ class Runner:
 
     def run(
         self,
-        experiment_name: str,
+        protocol_name: str,
         params: list[dict[str, Any]],
         dry_run: bool = False,
     ) -> RunReturn:
         tasks = self.experiment_repository.generate_tasks(
-            name=experiment_name,
+            protocol_name=protocol_name,
             params=params,
             context_config_path=self.config.config_path,
         )
         assert Path(self.config.config_path).exists()
+        experiment_name = tasks[0].get_experiment_name()
         mlflow.set_tracking_uri(self.config.mlflow_tracking_uri)
         if mlflow.get_experiment_by_name(experiment_name) is None:
             if self.config.create_experiment_if_not_existing:

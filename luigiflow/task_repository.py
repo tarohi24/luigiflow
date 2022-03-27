@@ -15,7 +15,7 @@ class ProtocolRepositoryItem:
     def register(self, task_class: type[MlflowTask]):
         if not issubclass(task_class, self.protocol_type):
             raise ValueError(f"{task_class} is not a {self.protocol_type}")
-        key = task_class.__class__.__name__
+        key = task_class.__name__
         if key in self._task_class_dict:
             raise ValueError(f"{key} already registered in {self.protocol_type}")
         self._task_class_dict[key] = task_class
@@ -48,7 +48,7 @@ class TaskRepository:
             sub_dict[sub_name] = task_cls
             # register protocol
             for prt in task_cls.get_protocols():
-                key = prt.__class__.__name__
+                key = prt.__name__
                 if key in self._protocols:
                     self._protocols[key].register(task_cls)
                 else:

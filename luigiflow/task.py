@@ -20,9 +20,9 @@ T = TypeVar("T")
 
 
 class TaskConfig(BaseModel):
-    experiment_name: Optional[str] = Field(default=None)
-    sub_experiment_nmae: Optional[str] = Field(default=None)
-    protocols: list[type[Protocol]] = Field(default_factory=list)
+    experiment_name: str
+    sub_experiment_name: str
+    protocols: list[type[Protocol]]
     tags_to_exclude: set[str] = Field(default_factory=set)
     output_tags_recursively: bool = Field(default=True)
 
@@ -36,8 +36,12 @@ class MlflowTaskMeta(Register):
         except KeyError:
             raise ValueError(f"{classname} doesn't have a Config.")
         cls.experiment_name = config.experiment_name
-        cls.sub_experiment_name = config.sub_experiment_nmae
+        cls.sub_experiment_name = config.sub_experiment_name
         cls.protocols = config.protocols
+        # check types
+        for prt in cls.protocols:
+            if not issubclass(cls, prt):
+                raise ValueError(f"{cls} is not a {prt}")
         cls.tags_to_exclude = config.tags_to_exclude
         cls.output_tags_recursively = config.output_tags_recursively
         return cls
@@ -47,7 +51,11 @@ class MlflowTask(luigi.Task, metaclass=MlflowTaskMeta):
     """
     This is a luigi's task aiming to save artifacts and/or metrics to an mllfow expriment.
     """
-    config = TaskConfig()
+    config = TaskConfig(
+        experiment_name="",  # dummy
+        sub_experiment_name="",  # dummy
+        protocols=[],
+    )
 
     @classmethod
     @final
@@ -190,7 +198,7 @@ class MlflowTask(luigi.Task, metaclass=MlflowTaskMeta):
         The format of dict keys is `{param_path}.{param_name}`,
         where `param_path` represents the relative path.
         """
-        if not self.output_tags_recursively():
+        if not self.output_tags_recursively:
             return self.to_mlflow_tags()
 
         def to_tags(task: MlflowTask) -> dict[str, MlflowTagValue]:
@@ -253,7 +261,7 @@ class MlflowTask(luigi.Task, metaclass=MlflowTaskMeta):
 
     @property
     def logger(self):
-        return logging.getLogger(self.experiment_name())
+        return logging.getLogger(self.get_experiment_name())
 
     def enable_tqdm(self):
         tqdm.pandas()
