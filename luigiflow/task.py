@@ -1,17 +1,16 @@
 import logging
 import os
 import tempfile
-import warnings
-from abc import ABCMeta
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, NoReturn, Optional, TypeVar, final, Any
 
 import luigi
 import mlflow
 from luigi import LocalTarget
+from luigi.task_register import Register
 from mlflow.entities import Experiment, Run
 from mlflow.protos.service_pb2 import ACTIVE_ONLY, RunStatus
+from pydantic import BaseModel, Field
 from tqdm.auto import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
@@ -20,25 +19,44 @@ from luigiflow.serializer import MlflowTagSerializer, MlflowTagValue, default_se
 T = TypeVar("T")
 
 
-class MlflowTask(luigi.Task):
+class TaskConfig(BaseModel):
+    experiment_name: Optional[str] = Field(default=None)
+    tags_to_exclude: set[str] = Field(default_factory=set)
+    output_tags_recursively: bool = True
+
+
+class MlflowTaskMeta(Register):
+
+    def __new__(mcs, classname: str, bases: tuple[type, ...], namespace: dict[str, Any]):
+        cls = super(MlflowTaskMeta, mcs).__new__(mcs, classname, bases, namespace)
+        try:
+            config: TaskConfig = namespace["config"]
+        except KeyError:
+            raise ValueError(f"{classname} doesn't have a Config.")
+        cls.experiment_name = config.experiment_name
+        cls.tags_to_exclude = config.tags_to_exclude
+        cls.output_tags_recursively = config.output_tags_recursively
+        return cls
+
+
+class MlflowTask(luigi.Task, metaclass=MlflowTaskMeta):
     """
     This is a luigi's task aiming to save artifacts and/or metrics to an mllfow expriment.
     """
+    config = TaskConfig()
 
     @classmethod
+    @final
     def get_tags_to_exclude(cls) -> set[str]:
-        return set()  # default
+        return cls.tags_to_exclude
 
     @classmethod
-    def output_tags_recursively(cls) -> bool:
-        return True  # default
-
-    @classmethod
+    @final
     def get_experiment_name(cls) -> str:
         """
         :return: name of the mlflow experiment corresponding to this task.
         """
-        raise NotImplementedError()
+        return cls.experiment_name
 
     @classmethod
     def get_artifact_filenames(cls) -> dict[str, str]:
@@ -81,7 +99,7 @@ class MlflowTask(luigi.Task):
             for name in self.get_param_names()
             if (
                 (val := getattr(self, name)) is not None
-                and name not in self.get_tags_to_exclude()
+                and name not in self.tags_to_exclude
             )
         }
 
@@ -221,7 +239,7 @@ class MlflowTask(luigi.Task):
 
     @property
     def logger(self):
-        return logging.getLogger(self.get_experiment_name())
+        return logging.getLogger(self.experiment_name())
 
     def enable_tqdm(self):
         tqdm.pandas()

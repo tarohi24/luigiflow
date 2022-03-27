@@ -9,7 +9,7 @@ import pytest
 from luigi import LocalTarget
 
 from luigiflow.savers import save_dataframe, save_pickle
-from luigiflow.task import MlflowTask
+from luigiflow.task import MlflowTask, TaskConfig
 
 
 def test_to_mlflow_tags(monkeypatch):
@@ -22,10 +22,10 @@ def test_to_mlflow_tags(monkeypatch):
         )
         param_large_value: float = luigi.FloatParameter(default=2e11)
         optional_param: Optional[str] = luigi.Parameter(default=None)
-
-        @classmethod
-        def get_tags_to_exclude(cls) -> set[str]:
-            return {"param_int", "param_date", "param_large_value"}
+        config = TaskConfig(
+            experiment_name="task",
+            tags_to_exclude={"param_int", "param_date", "param_large_value"},
+        )
 
     task = Task()
     TestCase().assertDictEqual(
@@ -36,24 +36,20 @@ def test_to_mlflow_tags(monkeypatch):
         }
     )
 
-    def mock_get_tags_to_exclude(*args, **kwargs):
-        return set()
-
-    # overwrite `get_tags_to_exclude`
-    monkeypatch.setattr(Task, "get_tags_to_exclude", mock_get_tags_to_exclude)
-    TestCase().assertDictEqual(
-        task.to_mlflow_tags(),
-        {
-            "param_int": 10,
-            "param_str": "hi",
-            "param_bool": 1,
-            "param_date": "2021-01-02",
-            "param_large_value": 200000000000.0,
-        },
-    )
+    # disable `tags_to_exclude`
+    monkeypatch.setattr(Task, "tags_to_exclude", set())
+    expected = {
+        "param_int": 10,
+        "param_str": "hi",
+        "param_bool": 1,
+        "param_date": "2021-01-02",
+        "param_large_value": 200000000000.0,
+    }
+    assert task.to_mlflow_tags() == expected
 
     class AnotherTask(Task):
         strange_param = luigi.Parameter(default=Task())
+        config = TaskConfig()
 
     with pytest.raises(TypeError):
         AnotherTask().to_mlflow_tags()
