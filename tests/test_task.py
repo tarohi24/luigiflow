@@ -46,6 +46,7 @@ def test_to_mlflow_tags(monkeypatch):
     TestCase().assertDictEqual(
         task.to_mlflow_tags(),
         {
+            "name": "Task",
             "param_str": "hi",
             "param_bool": 1,
         }
@@ -54,6 +55,7 @@ def test_to_mlflow_tags(monkeypatch):
     # disable `tags_to_exclude`
     monkeypatch.setattr(Task, "tags_to_exclude", set())
     expected = {
+        "name": "Task",
         "param_int": 10,
         "param_str": "hi",
         "param_bool": 1,
@@ -128,9 +130,13 @@ def test_to_tags_w_parents(monkeypatch):
             ...
 
     assert sorted(MainTask().to_mlflow_tags_w_parent_tags().items()) == sorted({
+        "name": "MainTask",
         "bool_param": 0,
+        "ccc.name": "TaskC",
         "ccc.int_param": 10,
+        "bbb.name": "TaskB",
         "bbb.value": 1,
+        "bbb.aaa.name": "TaskA",
         "bbb.aaa.param": "hi",
     }.items())
 
@@ -156,6 +162,7 @@ def test_to_tags_w_parents(monkeypatch):
     TestCase().assertDictEqual(
         task.to_mlflow_tags_w_parent_tags(),
         {
+            "name": "MainTaskWoRecursiveTags",
             "bool_param": True,
         },
     )
@@ -165,9 +172,12 @@ def test_to_tags_w_parents(monkeypatch):
     TestCase().assertDictEqual(
         task.to_mlflow_tags_w_parent_tags(),
         {
+            "name": "MainTask",
             "bool_param": False,
+            "ccc.name": "TaskC",
             "ccc.int_param": 10,
             "bbb.value": 1,
+            "bbb.name": "TaskB",
         }
     )
 

@@ -172,7 +172,7 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol, metaclass=MlflowTaskMeta):
         :param exclude: Specify parameters not to show in the tags.
         """
         serializer = self.get_tag_serializer()
-        return {
+        base = {
             name: serializer.serialize(val)
             for name in self.get_param_names()
             if (
@@ -180,6 +180,8 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol, metaclass=MlflowTaskMeta):
                 and name not in self.tags_to_exclude
             )
         }
+        base["name"] = str(self.__class__.__name__)
+        return base
 
     def _run(self) -> NoReturn:
         """
