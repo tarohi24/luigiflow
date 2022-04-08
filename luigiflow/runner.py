@@ -8,7 +8,7 @@ import luigi
 import mlflow
 from luigi.execution_summary import LuigiRunResult
 
-from luigiflow.config.run import RunnerConfig
+from luigiflow.config import RunnerConfig
 from luigiflow.task_repository import TaskRepository
 from luigiflow.types import TaskParameter
 
@@ -50,9 +50,7 @@ class Runner:
             if self.config.create_experiment_if_not_existing:
                 mlflow.create_experiment(experiment_name)
             else:
-                raise ValueError(
-                    f"Experiment {experiment_name} not found at {self.config.mlflow_tracking_uri}"
-                )
+                raise ValueError(f"Experiment {experiment_name} not found at {self.config.mlflow_tracking_uri}")
         if dry_run:
             return task, None
         res = luigi.build(
