@@ -8,12 +8,15 @@ import luigi
 import mlflow
 from luigi.execution_summary import LuigiRunResult
 
-from luigiflow.config.jsonnet import InvalidJsonnetFileError
 from luigiflow.config.run import RunnerConfig
 from luigiflow.task_repository import TaskRepository
 from luigiflow.types import TaskParameter
 
 RunReturn = tuple[luigi.Task, Optional[LuigiRunResult]]
+
+
+class InvalidJsonnetFileError(Exception):
+    ...
 
 
 def _load_task_params(path: Path) -> TaskParameter:

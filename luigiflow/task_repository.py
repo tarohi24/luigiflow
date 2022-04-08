@@ -14,6 +14,10 @@ class InconsistentDependencies(Exception):
     ...
 
 
+class ProtocolNotRegistered(Exception):
+    ...
+
+
 def _deserialize_params(params: dict[str, Any], task_cls: type[MlflowTask]) -> dict[str, Any]:
     param_types = task_cls.param_types
     return {key: DESERIALIZERS[param_types[key].__name__](val) for key, val in params.items()}
@@ -64,7 +68,11 @@ class TaskRepository:
         protocol_name: str,
     ) -> MlflowTask:
         cls_name = task_params["cls"]
-        task_cls: type[MlflowTask] = self._protocols[protocol_name].get(cls_name)
+        try:
+            protocol_item = self._protocols[protocol_name]
+        except KeyError:
+            raise ProtocolNotRegistered(f"Unknown protocol: {protocol_name}")
+        task_cls: type[MlflowTask] = protocol_item.get(cls_name)
         task_kwargs = _deserialize_params(
             params=task_params.get("params", dict()),  # allow empty params
             task_cls=task_cls,
