@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 from luigi import LuigiStatusCode
 
-from luigiflow.config.run import RunnerConfig
+from luigiflow.config import RunnerConfig
 from luigiflow.runner import Runner
 from luigiflow.task import MlflowTask, TaskConfig, MlflowTaskProtocol
 from luigiflow.task_repository import TaskRepository
