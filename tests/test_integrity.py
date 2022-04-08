@@ -1,14 +1,12 @@
 from datetime import datetime
 from pathlib import Path
-from typing import NoReturn, Protocol, runtime_checkable
+from typing import NoReturn, Protocol, runtime_checkable, TypedDict
 
 import luigi
 import pandas as pd
 import pytest
-from dependency_injector.wiring import Provide
 from luigi import LuigiStatusCode
 
-from luigiflow.config.jsonnet import InvalidJsonnetFileError, JsonnetConfigLoader
 from luigiflow.config.run import RunnerConfig
 from luigiflow.runner import Runner
 from luigiflow.task import MlflowTask, TaskConfig, MlflowTaskProtocol
@@ -18,14 +16,15 @@ from luigiflow.utils.savers import save_dataframe
 
 @runtime_checkable
 class SaveCsv(MlflowTaskProtocol, Protocol):
-
     def save_csv(self, path: Path):
         raise NotImplementedError()
+
+    def get_value(self) -> float:
+        raise NotImplementedError
 
 
 @runtime_checkable
 class SaveJson(MlflowTaskProtocol, Protocol):
-
     def save_json(self, path: Path):
         raise NotImplementedError()
 
@@ -35,11 +34,17 @@ class TaskA(MlflowTask):
 
     config = TaskConfig(
         experiment_name="task",
-        protocols=[SaveCsv, ],
+        protocols=[
+            SaveCsv,
+        ],
+        requirements=dict(),
         artifact_filenames={
             "csv": "a.csv",
-        }
+        },
     )
+
+    def get_value(self) -> float:
+        return self.value
 
     def save_csv(self, path: Path):
         ...
@@ -53,29 +58,34 @@ class TaskA(MlflowTask):
         )
 
 
-class TaskB(MlflowTask):
+class Requirements(TypedDict):
+    a: SaveCsv
+
+
+class TaskB(MlflowTask[Requirements]):
     date_start: datetime.date = luigi.DateParameter()
     int_value: int = luigi.IntParameter()
     message: str = luigi.Parameter()
     config = TaskConfig(
         experiment_name="task",
         protocols=[SaveCsv, SaveJson],
+        requirements={
+            "a": SaveCsv,
+        },
         artifact_filenames={
             "csv": "out_b.csv",
             "json": "json.json",
-        }
+        },
     )
+
+    def get_value(self):
+        ...
 
     def save_csv(self, path: Path):
         ...
 
     def save_json(self, path: Path):
         ...
-
-    def requires(self, save_csv_task: type[MlflowTaskProtocol] = Provide["SaveCsv"]) -> dict[str, MlflowTaskProtocol]:
-        return {
-            "a": save_csv_task(),
-        }
 
     def _run(self) -> NoReturn:
         df = pd.DataFrame()
@@ -88,79 +98,61 @@ class TaskB(MlflowTask):
 
 
 @pytest.fixture()
-def runner(artifacts_server, tmpdir) -> Runner:
-    config_path = tmpdir.mkdir("sub").join("config.jsonnet")
-    with config_path.open("w") as fout:
-        fout.write('''
-                {
-                    "TaskA": {
-                        "value": 3.0,
-                    },
-                    "TaskB": {
-                        "date_start": std.extVar("DATE_START"),
-                        "int_value": 1,
-                        "message": "Hello!",
-                    }
-                }
-                ''')
+def runner(artifacts_server) -> Runner:
     runner = Runner(
         config=RunnerConfig(
             mlflow_tracking_uri=artifacts_server.url,
-            config_path=config_path,
             use_local_scheduler=True,
             create_experiment_if_not_existing=True,
         ),
         experiment_repository=TaskRepository(
             task_classes=[TaskA, TaskB],
-            dependencies={
-                "SaveCsv": "TaskA",
-                "SaveJson": "TaskB",
-            }
-        )
+        ),
     )
     return runner
 
 
-def test_run_multiple_tasks(runner):
-    runner.experiment_repository.inject_dependencies(
-        module_to_wire=[__name__, ],
-    )
-    invalid_params = [
-        {"DATE": "2021-11-11"},
-        {"DATE_START": "2021-11-11"},
-    ]
-    with pytest.raises(InvalidJsonnetFileError):
-        runner.run("SaveJson", external_params=invalid_params)
+@pytest.fixture()
+def sample_task_param_path(tmpdir) -> Path:
+    config_path = tmpdir.mkdir("sub").join("config.jsonnet")
+    with config_path.open("w") as fout:
+        fout.write(
+            """
+                local val = 3.0;
+                {
+                    cls: "TaskB",
+                    params: {
+                        date_start: "2011-11-10",
+                        int_value: 1,
+                        message: "Hello!",
+                    },
+                    requires: {
+                        a: {
+                            cls: "TaskA",
+                            params: {
+                                value: val,
+                            },
+                        }
+                    }
+                }
+                """
+        )
+    return config_path
 
-    # valid keys, invalid values
-    invalid_params = [
-        {"DATE_START": "hi!"},  # invalid
-        {"DATE_START": "2021-11-11"},  # valid
-    ]
-    with pytest.raises(ValueError):
-        runner.run("SaveJson", external_params=invalid_params)
 
-    valid_params = [
-        {"DATE_START": "2021-11-12"},  # valid
-        {"DATE_START": "2021-11-11"},  # valid
-    ]
-    tasks, res = runner.run("SaveJson", external_params=valid_params)
-    assert len(tasks) == 2
+def test_run_with_single_param(runner, sample_task_param_path):
+    task, res = runner.run("SaveJson", sample_task_param_path)
+    assert isinstance(task, TaskB)
     assert res.status == LuigiStatusCode.SUCCESS
-    # Check if all the tasks ran
-    for param in valid_params:
-        config_loader = JsonnetConfigLoader(external_variables=param)
-        with config_loader.load(runner.config.config_path):
-            assert TaskA().complete()
+    assert task.int_value == 1
+    assert task.requires()["a"].get_value() == 3.0
 
 
-def test_dry_run(runner):
-    tasks, res = runner.run(
+def test_dry_run(runner, sample_task_param_path):
+    task, res = runner.run(
         protocol_name="SaveJson",
-        external_params=[
-            {"DATE_START": "2021-11-11"},
-        ],
+        config_jsonnet_path=sample_task_param_path,
         dry_run=True,
     )
-    assert len(tasks) == 1
+    assert isinstance(task, MlflowTask)
     assert res is None

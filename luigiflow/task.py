@@ -2,7 +2,17 @@ import logging
 import os
 import tempfile
 from pathlib import Path
-from typing import Callable, NoReturn, Optional, TypeVar, final, Any, Protocol, runtime_checkable
+from typing import (
+    Callable,
+    NoReturn,
+    Optional,
+    TypeVar,
+    final,
+    Any,
+    Protocol,
+    runtime_checkable,
+    Generic,
+)
 
 import luigi
 import mlflow
@@ -16,7 +26,8 @@ from tqdm.contrib.logging import logging_redirect_tqdm
 
 from luigiflow.serializer import MlflowTagSerializer, MlflowTagValue, default_serializer
 
-T = TypeVar("T")
+T = TypeVar("T", bound=dict)  # to denote the type of `task.requires()`
+K = TypeVar("K")  # for `save_artifacts`
 
 
 class TryingToSaveUndefinedArtifact(Exception):
@@ -24,97 +35,138 @@ class TryingToSaveUndefinedArtifact(Exception):
 
 
 @runtime_checkable
-class MlflowTaskProtocol(Protocol):
+class MlflowTaskProtocol(Protocol[T]):
     """
     You can use this protocol to implement task protocols.
-    Because a protocl class cannot inherit from non-protocol classes,
+    Because a protocol class cannot inherit from non-protocol classes,
     you can use this instead of `MlflowTask`.
+
+    `T` is a `TypedDict` to describe `requires()`.
     """
 
     @classmethod
-    def get_protocols(cls) -> list[Protocol]: ...
+    def get_protocols(cls) -> list[Protocol]:
+        ...
 
     @classmethod
-    def get_tags_to_exclude(cls) -> set[str]: ...
+    def get_tags_to_exclude(cls) -> set[str]:
+        ...
 
     @classmethod
-    def get_experiment_name(cls) -> str: ...
+    def get_experiment_name(cls) -> str:
+        ...
 
     @classmethod
-    def get_artifact_filenames(cls) -> dict[str, str]: ...
+    def get_artifact_filenames(cls) -> dict[str, str]:
+        ...
 
     @classmethod
-    def get_tag_serializer(cls) -> MlflowTagSerializer: ...
+    def get_tag_serializer(cls) -> MlflowTagSerializer:
+        ...
 
     # just to note types
-    def input(self) -> dict[str, dict[str, LocalTarget]]: ...
+    def input(self) -> dict[str, dict[str, LocalTarget]]:
+        ...
 
-    def requires(self) -> dict[str, "MlflowTaskProtocol"]: ...
+    def requires(self) -> T:
+        ...
 
-    def to_mlflow_tags(self) -> dict[str, MlflowTagValue]: ...
+    def to_mlflow_tags(self) -> dict[str, MlflowTagValue]:
+        ...
 
-    def _run(self) -> NoReturn: ...
+    def _run(self) -> NoReturn:
+        ...
 
-    def run(self): ...
+    def run(self):
+        ...
 
-    def search_for_mlflow_run(self, view_type: RunStatus = ACTIVE_ONLY) -> Optional[Run]: ...
+    def search_for_mlflow_run(
+        self, view_type: RunStatus = ACTIVE_ONLY
+    ) -> Optional[Run]:
+        ...
 
-    def complete(self): ...
+    def complete(self):
+        ...
 
-    def output(self) -> Optional[dict[str, LocalTarget]]: ...
+    def output(self) -> Optional[dict[str, LocalTarget]]:
+        ...
 
-    def to_mlflow_tags_w_parent_tags(self) -> dict[str, MlflowTagValue]: ...
+    def to_mlflow_tags_w_parent_tags(self) -> dict[str, MlflowTagValue]:
+        ...
 
     def save_to_mlflow(
         self,
-        artifacts_and_save_funcs: dict[str, tuple[T, Callable[[T, str], None]]] = None,
+        artifacts_and_save_funcs: dict[str, tuple[K, Callable[[K, str], None]]] = None,
         metrics: dict[str, float] = None,
         inherit_parent_tags: bool = True,
-    ): ...
+    ):
+        ...
 
-    def logger(self) -> logging.Logger: ...
+    def logger(self) -> logging.Logger:
+        ...
 
-    def enable_tqdm(self) -> NoReturn: ...
+    def enable_tqdm(self) -> NoReturn:
+        ...
 
 
 class TaskConfig(BaseModel):
     experiment_name: str
     protocols: list[type[MlflowTaskProtocol]]
+    requirements: dict[str, type[MlflowTaskProtocol]] = Field(default_factory=dict)
     artifact_filenames: dict[str, str] = Field(default_factory=dict)
     tags_to_exclude: set[str] = Field(default_factory=set)
     output_tags_recursively: bool = Field(default=True)
 
 
-class MlflowTaskMeta(Register, type(Protocol)):
-
-    def __new__(mcs, classname: str, bases: tuple[type, ...], namespace: dict[str, Any]):
+class MlflowTaskMeta(Register, Generic[T], type(Protocol)):
+    def __new__(
+        mcs, classname: str, bases: tuple[type, ...], namespace: dict[str, Any]
+    ):
         cls = super(MlflowTaskMeta, mcs).__new__(mcs, classname, bases, namespace)
         try:
             config: TaskConfig = namespace["config"]
         except KeyError:
             raise ValueError(f"{classname} doesn't have a Config.")
-        if (config.experiment_name == "") and classname != "MlflowTask":  # empty value only allowed for the base class
+        if (
+            config.experiment_name == ""
+        ) and classname != "MlflowTask":  # empty value only allowed for the base class
             raise ValueError(f"Experiment name not set for {classname}")
         cls.experiment_name = config.experiment_name
         cls.protocols = config.protocols
-        # check types
-        for prt in cls.protocols:
-            if not issubclass(cls, prt):
-                raise ValueError(f"{cls} is not a {prt}")
+        cls.requirements = config.requirements
         cls.tags_to_exclude = config.tags_to_exclude
         cls.output_tags_recursively = config.output_tags_recursively
         cls.artifact_filenames = config.artifact_filenames
+        cls.param_types = {
+            key: type(maybe_param)
+            for key, maybe_param in namespace.items()
+            if isinstance(maybe_param, luigi.Parameter)
+        }
         return cls
 
+    def __call__(cls, requirements_impl: T, *args, **kwargs):
+        """
+        This specifies how to instantiate `MlflowTask`, i.e. this is `Mlflow.__init__`.
+        Because `luigi.Task` has a metaclass `Register`, you cannot override `luigi.Task.__init__`.
+        :param requirements_impl:
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        instance = super(MlflowTaskMeta, cls).__call__(*args, **kwargs)
+        instance.requirements_impl = requirements_impl
+        return instance
 
 
-class MlflowTask(luigi.Task, MlflowTaskProtocol, metaclass=MlflowTaskMeta):
+class MlflowTask(luigi.Task, MlflowTaskProtocol[T], metaclass=MlflowTaskMeta[T]):
     """
     This is a luigi's task aiming to save artifacts and/or metrics to an mllfow expriment.
     """
+
     config = TaskConfig(
         experiment_name="",  # dummy
         protocols=[],
+        requirements=dict(),
     )
 
     @classmethod
@@ -155,11 +207,12 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol, metaclass=MlflowTaskMeta):
     def input(self) -> dict[str, dict[str, LocalTarget]]:
         return super(MlflowTask, self).input()
 
-    def requires(self) -> dict[str, MlflowTaskProtocol]:
+    @final
+    def requires(self) -> T:
         """
         :return: A dictionary consisting of {task_name: task}
         """
-        return dict()
+        return self.requirements_impl
 
     def to_mlflow_tags(self) -> dict[str, MlflowTagValue]:
         """
@@ -272,7 +325,8 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol, metaclass=MlflowTaskMeta):
             }
             for task_name, t in parent_tasks.items():
                 t_tags_w_prefix = {
-                    f"{task_name}.{key}": val for key, val in t.to_mlflow_tags_w_parent_tags().items()
+                    f"{task_name}.{key}": val
+                    for key, val in t.to_mlflow_tags_w_parent_tags().items()
                 }
                 tags = dict(**tags, **t_tags_w_prefix)
             return tags
@@ -282,7 +336,7 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol, metaclass=MlflowTaskMeta):
     @final
     def save_to_mlflow(
         self,
-        artifacts_and_save_funcs: dict[str, tuple[T, Callable[[T, str], None]]] = None,
+        artifacts_and_save_funcs: dict[str, tuple[K, Callable[[K, str], None]]] = None,
         metrics: dict[str, float] = None,
         inherit_parent_tags: bool = True,
     ):

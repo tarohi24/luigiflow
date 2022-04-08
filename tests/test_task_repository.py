@@ -1,22 +1,23 @@
 from typing import Protocol, NoReturn, runtime_checkable
 
 import pytest
-from dependency_injector.wiring import inject, Provide
 
 from luigiflow.task import MlflowTask, TaskConfig, MlflowTaskProtocol
-from luigiflow.task_repository import TaskRepository, TaskWithTheSameNameAlreadyRegistered, InconsistentDependencies
+from luigiflow.task_repository import (
+    TaskRepository,
+    TaskWithTheSameNameAlreadyRegistered,
+    ProtocolNotRegistered,
+)
 
 
 @runtime_checkable
 class DoNothingProtocol(MlflowTaskProtocol, Protocol):
-
     def do_nothing(self):
         raise NotImplementedError()
 
 
 @runtime_checkable
 class AnotherProtocol(MlflowTaskProtocol, Protocol):
-
     def method_a(self):
         raise NotImplementedError()
 
@@ -24,7 +25,10 @@ class AnotherProtocol(MlflowTaskProtocol, Protocol):
 class DoNothingImpl(MlflowTask):
     config = TaskConfig(
         experiment_name="do_nothing",
-        protocols=[DoNothingProtocol, ],
+        protocols=[
+            DoNothingProtocol,
+        ],
+        requirements=dict(),
     )
 
     def _run(self) -> NoReturn:
@@ -37,17 +41,13 @@ class DoNothingImpl(MlflowTask):
 class NewTask(MlflowTask):
     config = TaskConfig(
         experiment_name="x",
-        protocols=[AnotherProtocol, ],
+        protocols=[
+            AnotherProtocol,
+        ],
+        requirements={
+            "1": DoNothingProtocol,
+        },
     )
-
-    @inject
-    def requires(
-        self,
-        task_cls: type[MlflowTask] = Provide["DoNothingProtocol"],
-    ) -> dict[str, MlflowTaskProtocol]:
-        return {
-            "1": task_cls(),
-        }
 
     def _run(self) -> NoReturn:
         ...
@@ -59,56 +59,53 @@ class NewTask(MlflowTask):
 def test_duplicated_tasks():
     with pytest.raises(TaskWithTheSameNameAlreadyRegistered):
         TaskRepository(
-            task_classes=[DoNothingImpl, DoNothingImpl, ],
-            dependencies={
-                "DoNothingProtocol": "DoNothingImpl",
-            }
+            task_classes=[
+                DoNothingImpl,
+                DoNothingImpl,
+            ],
         )
 
 
-def test_inconsistent_tasks_and_dependencies():
-    with pytest.raises(InconsistentDependencies):
-        TaskRepository(
-            task_classes=[DoNothingImpl, ],
-            dependencies={
-                "dummy": "DoNothingImpl",  # invalid protocol name
-            }
-        )
-    with pytest.raises(InconsistentDependencies):
-        TaskRepository(
-            task_classes=[DoNothingImpl, ],
-            dependencies={
-                "DoNothingProtocol": "dummy",  # invalid task name
-            }
+def test_unknown_protocol():
+    class UnknownProtocol(MlflowTaskProtocol):
+        ...
+
+    class UnknownTask(MlflowTask):
+        config = TaskConfig(
+            experiment_name="hi",
+            protocols=[
+                UnknownProtocol,
+            ],
+            requirements=dict(),
         )
 
-
-def test_inject_dependencies():
-    repo = TaskRepository(
-        task_classes=[NewTask, DoNothingImpl],
-        dependencies={
-            "AnotherProtocol": "NewTask",
-            "DoNothingProtocol": "DoNothingImpl",
-        }
-    )
-    repo.inject_dependencies(module_to_wire=[__name__, ])
-
-
-def test_ignore_missing_dependencies():
-    TaskRepository(
-        task_classes=[DoNothingImpl, NewTask],
-        dependencies={
-            # The dependency of AnotherTask is missing
-            "DoNothingProtocol": "DoNothingImpl",
-        },
-        ignore_missing_dependencies=True,
-    )
-    with pytest.raises(InconsistentDependencies):
-        TaskRepository(
-            task_classes=[DoNothingImpl, NewTask],
-            dependencies={
-                # The dependency of AnotherTask is missing
-                "DoNothingProtocol": "DoNothingImpl",
+    class TaskHavingUnknownProtocol(MlflowTask):
+        config = TaskConfig(
+            experiment_name="hi",
+            protocols=[
+                DoNothingProtocol,
+            ],
+            requirements={
+                "unknown": UnknownProtocol,
             },
-            ignore_missing_dependencies=False,
+        )
+
+    repo = TaskRepository(
+        task_classes=[
+            TaskHavingUnknownProtocol,
+        ],
+    )
+    with pytest.raises(ProtocolNotRegistered):
+        repo.generate_task_tree(
+            task_params={
+                "cls": "TaskHavingUnknownProtocol",
+                "params": dict(),
+                "requires": {
+                    "unknown": {
+                        "cls": "UnknownTask",
+                        "params": dict(),
+                    },
+                },
+            },
+            protocol="DoNothingProtocol",
         )
