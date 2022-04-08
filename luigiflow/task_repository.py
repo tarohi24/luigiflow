@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Protocol, Any, Type
+from typing import Protocol, Any
 
 from luigiflow.serializer import DESERIALIZERS
 from luigiflow.task import MlflowTask, MlflowTaskProtocol

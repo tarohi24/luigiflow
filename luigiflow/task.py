@@ -135,7 +135,7 @@ class MlflowTaskMeta(Register, Generic[T], type(Protocol)):
         :param kwargs:
         :return:
         """
-        instance = super(MlflowTaskMeta, cls).__call__()
+        instance = super(MlflowTaskMeta, cls).__call__(*args, **kwargs)
         instance.requirements_impl = requirements_impl
         return instance
 

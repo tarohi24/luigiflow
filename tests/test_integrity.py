@@ -5,11 +5,8 @@ from typing import NoReturn, Protocol, runtime_checkable, TypedDict
 import luigi
 import pandas as pd
 import pytest
-from dependency_injector.wiring import Provide
 from luigi import LuigiStatusCode
-from luigi.execution_summary import LuigiRunResult
 
-from luigiflow.config.jsonnet import InvalidJsonnetFileError, JsonnetConfigLoader
 from luigiflow.config.run import RunnerConfig
 from luigiflow.runner import Runner
 from luigiflow.task import MlflowTask, TaskConfig, MlflowTaskProtocol
@@ -115,93 +112,45 @@ def runner(artifacts_server) -> Runner:
     return runner
 
 
-def test_run_with_single_param(runner, tmpdir):
+@pytest.fixture()
+def sample_task_param_path(tmpdir) -> Path:
     config_path = tmpdir.mkdir("sub").join("config.jsonnet")
     with config_path.open("w") as fout:
         fout.write('''
-            local val = 3.0;
-            {
-                cls: "TaskB",
-                params: {
-                    date_start: "2011-11-10",
-                    int_value: 1,
-                    message: "Hello!",
-                },
-                requires: {
-                    a: {
-                        cls: "TaskA",
-                        params: {
-                            value: val,
-                        },
+                local val = 3.0;
+                {
+                    cls: "TaskB",
+                    params: {
+                        date_start: "2011-11-10",
+                        int_value: 1,
+                        message: "Hello!",
+                    },
+                    requires: {
+                        a: {
+                            cls: "TaskA",
+                            params: {
+                                value: val,
+                            },
+                        }
                     }
                 }
-            }
-            ''')
-    task, res = runner.run("SaveJson", config_path)
+                ''')
+    return config_path
+
+
+def test_run_with_single_param(runner, sample_task_param_path):
+    task, res = runner.run("SaveJson", sample_task_param_path)
     assert isinstance(task, TaskB)
     assert res.status == LuigiStatusCode.SUCCESS
     assert task.int_value == 1
     assert task.requires()["a"].get_value() == 3.0
 
 
-def test_run_multiple_tasks(runner, tmpdir):
-    config_path = tmpdir.mkdir("sub").join("config.jsonnet")
-    with config_path.open("w") as fout:
-        fout.write('''
-            local val = 3.0;
-            {
-                type: "TaskB",
-                params: {
-                    date_start: std.extVar("DATE_START"),
-                    int_value: 1,
-                    message: "Hello!",
-                },
-                requires: {
-                    a: {
-                        type: "TaskA",
-                        params: {
-                            value: val,
-                        },
-                    }
-                }
-            }
-            ''')
-    invalid_params = [
-        {"DATE": "2021-11-11"},
-        {"DATE_START": "2021-11-11"},
-    ]
-    with pytest.raises(InvalidJsonnetFileError):
-        runner.run("SaveJson", config_path)
-
-    # valid keys, invalid values
-    invalid_params = [
-        {"DATE_START": "hi!"},  # invalid
-        {"DATE_START": "2021-11-11"},  # valid
-    ]
-    with pytest.raises(ValueError):
-        runner.run("SaveJson", config_path)
-
-    valid_params = [
-        {"DATE_START": "2021-11-12"},  # valid
-        {"DATE_START": "2021-11-11"},  # valid
-    ]
-    task, res = runner.run("SaveJson", config_path)
-    assert len(task) == 2
-    assert res.status == LuigiStatusCode.SUCCESS
-    # Check if all the tasks ran
-    for param in valid_params:
-        config_loader = JsonnetConfigLoader(external_variables=param)
-        with config_loader.load(runner.config.config_path):
-            assert TaskA().complete()
-
-
-def test_dry_run(runner):
-    tasks, res = runner.run(
+def test_dry_run(runner, sample_task_param_path):
+    task, res = runner.run(
         protocol_name="SaveJson",
-        external_params=[
-            {"DATE_START": "2021-11-11"},
-        ],
+        config_jsonnet_path=sample_task_param_path,
         dry_run=True,
     )
-    assert len(tasks) == 1
+    assert isinstance(task, MlflowTask)
     assert res is None
