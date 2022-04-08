@@ -16,8 +16,8 @@ from tqdm.contrib.logging import logging_redirect_tqdm
 
 from luigiflow.serializer import MlflowTagSerializer, MlflowTagValue, default_serializer
 
-T = TypeVar("T", bound=dict)
-K = TypeVar("K")
+T = TypeVar("T", bound=dict)  # to denote the type of `task.requires()`
+K = TypeVar("K")  # for `save_artifacts`
 
 
 class TryingToSaveUndefinedArtifact(Exception):
@@ -28,7 +28,7 @@ class TryingToSaveUndefinedArtifact(Exception):
 class MlflowTaskProtocol(Protocol[T]):
     """
     You can use this protocol to implement task protocols.
-    Because a protocl class cannot inherit from non-protocol classes,
+    Because a protocol class cannot inherit from non-protocol classes,
     you can use this instead of `MlflowTask`.
 
     `T` is a `TypedDict` to describe `requires()`.
@@ -117,12 +117,7 @@ class MlflowTaskMeta(Register, Generic[T], type(Protocol)):
             raise ValueError(f"Experiment name not set for {classname}")
         cls.experiment_name = config.experiment_name
         cls.protocols = config.protocols
-        # check types
-        for prt in cls.protocols:
-            if not issubclass(cls, prt):
-                raise ValueError(f"{cls} is not a {prt}")
         cls.requirements = config.requirements
-        cls.requirements_impl = dict()  # injected at run time
         cls.tags_to_exclude = config.tags_to_exclude
         cls.output_tags_recursively = config.output_tags_recursively
         cls.artifact_filenames = config.artifact_filenames
@@ -130,6 +125,19 @@ class MlflowTaskMeta(Register, Generic[T], type(Protocol)):
             key: type(maybe_param) for key, maybe_param in namespace.items() if isinstance(maybe_param, luigi.Parameter)
         }
         return cls
+
+    def __call__(cls, requirements_impl: T, *args, **kwargs):
+        """
+        This specifies how to instantiate `MlflowTask`, i.e. this is `Mlflow.__init__`.
+        Because `luigi.Task` has a metaclass `Register`, you cannot override `luigi.Task.__init__`.
+        :param requirements_impl:
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        instance = super(MlflowTaskMeta, cls).__call__()
+        instance.requirements_impl = requirements_impl
+        return instance
 
 
 class MlflowTask(luigi.Task, MlflowTaskProtocol[T], metaclass=MlflowTaskMeta[T]):

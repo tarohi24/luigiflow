@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
-from typing import Protocol, Any
+from typing import Protocol, Any, Type
 
 from luigiflow.serializer import DESERIALIZERS
-from luigiflow.task import MlflowTask
+from luigiflow.task import MlflowTask, MlflowTaskProtocol
 from luigiflow.types import TaskParameter
 
 
@@ -25,8 +25,6 @@ class ProtocolRepositoryItem:
     _task_class_dict: dict[str, type[MlflowTask]] = field(init=False, default_factory=dict)
 
     def register(self, task_class: type[MlflowTask]):
-        if not issubclass(task_class, self.protocol_type):
-            raise TypeError(f"{task_class} is not a {self.protocol_type}")
         key = task_class.__name__
         if key in self._task_class_dict:
             raise TaskWithTheSameNameAlreadyRegistered(f"{key} already registered in {self.protocol_type}")
@@ -66,21 +64,23 @@ class TaskRepository:
         protocol_name: str,
     ) -> MlflowTask:
         cls_name = task_params["cls"]
-        task_cls = self._protocols[protocol_name].get(cls_name)
+        task_cls: type[MlflowTask] = self._protocols[protocol_name].get(cls_name)
         task_kwargs = _deserialize_params(
-            params=task_params["params"],
+            params=task_params.get("params", dict()),  # allow empty params
             task_cls=task_cls,
         )
         # resolve requirements
-        if len(task_cls.requirements) == 0:
+        requirements: dict[str, type[MlflowTaskProtocol]] = task_cls.requirements  # type: ignore
+        requirements_impl: dict[str, MlflowTask] = dict()
+        if len(requirements) == 0:
             assert "requires" not in task_params
         else:
             assert "requires" in task_params
             # resolve its dependency
-            for key, protocol in task_cls.requirements.items():
+            for key, protocol in requirements.items():
                 req_task_cls: MlflowTask = self.generate_task_tree(
                     task_params["requires"][key],
                     protocol_name=protocol.__name__,
                 )
-                task_cls.requirements_impl[key] = req_task_cls
-        return task_cls(**task_kwargs)
+                requirements_impl[key] = req_task_cls
+        return task_cls(requirements_impl=requirements_impl, **task_kwargs)
