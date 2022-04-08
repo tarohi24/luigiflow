@@ -9,6 +9,7 @@ import pytest
 from luigi import LocalTarget
 
 from luigiflow.task import MlflowTask, TaskConfig, TryingToSaveUndefinedArtifact, MlflowTaskProtocol
+from luigiflow.task_repository import TaskRepository
 from luigiflow.utils.savers import save_dataframe, save_pickle, save_json
 
 
@@ -36,6 +37,7 @@ def test_to_mlflow_tags(monkeypatch):
         config = TaskConfig(
             experiment_name="task",
             protocols=[DummyProtocol, ],
+            requirements=dict(),
             tags_to_exclude={"param_int", "param_date", "param_large_value"},
         )
 
@@ -69,6 +71,7 @@ def test_to_mlflow_tags(monkeypatch):
         config = TaskConfig(
             experiment_name="dummy",
             protocols=[],
+            requirements=dict(),
             artifact_filenames=dict(),
         )
 
@@ -78,58 +81,94 @@ def test_to_mlflow_tags(monkeypatch):
 
 def test_to_tags_w_parents(monkeypatch):
 
-    class TaskA(MlflowTask):
+    class ITaskA(MlflowTaskProtocol):
+        ...
+
+    class ITaskB(MlflowTaskProtocol):
+        ...
+
+    class ITaskC(MlflowTaskProtocol):
+        ...
+
+    class IMainTask(MlflowTaskProtocol):
+        ...
+
+    class TaskA(MlflowTask[dict]):
         param: str = luigi.Parameter(default="hi")
         config = TaskConfig(
             experiment_name="dummy",
-            protocols=[],
+            protocols=[ITaskA, ],
+            requirements=dict(),
         )
 
         def _run(self) -> NoReturn:
             ...
 
-    class TaskB(MlflowTask):
+    class TaskB(MlflowTask[dict]):
         value: int = luigi.IntParameter(default=1)
         config = TaskConfig(
             experiment_name="dummy",
-            protocols=[],
-        )
-
-        def requires(self) -> dict[str, MlflowTaskProtocol]:
-            return {
-                "aaa": TaskA(),
+            protocols=[ITaskB, ],
+            requirements={
+                "aaa": ITaskA,
             }
+        )
 
         def _run(self) -> NoReturn:
             ...
 
-    class TaskC(MlflowTask):
+    class TaskC(MlflowTask[dict]):
         int_param: int = luigi.IntParameter(default=10)
         config = TaskConfig(
             experiment_name="dummy",
-            protocols=[],
+            protocols=[ITaskC, ],
+            requirements=dict(),
         )
 
         def _run(self) -> NoReturn:
             ...
 
-    class MainTask(MlflowTask):
+    class MainTask(MlflowTask[dict]):
         bool_param: bool = luigi.BoolParameter(default=False)
         config = TaskConfig(
             experiment_name="dummy",
-            protocols=[],
-        )
-
-        def requires(self) -> dict[str, MlflowTaskProtocol]:
-            return {
-                "bbb": TaskB(),
-                "ccc": TaskC(),
+            protocols=[IMainTask, ],
+            requirements={
+                "bbb": ITaskB,
+                "ccc": ITaskC,
             }
+        )
 
         def _run(self) -> NoReturn:
             ...
 
-    assert sorted(MainTask().to_mlflow_tags_w_parent_tags().items()) == sorted({
+    task_repo = TaskRepository(
+        task_classes=[TaskA, TaskB, TaskC, MainTask],
+    )
+    task_params = {
+        "cls": "MainTask",
+        "params": {},
+        "requires": {
+            "bbb": {
+                "cls": "TaskB",
+                "params": {},
+                "requires": {
+                    "aaa": {
+                        "cls": "TaskA",
+                    }
+                },
+            },
+            "ccc": {
+                "cls": "TaskC",
+            },
+        }
+    }
+    main_task = task_repo.generate_task_tree(
+        task_params=task_params,
+        protocol_name="IMainTask",
+    )
+
+    assert sorted(main_task.to_mlflow_tags_w_parent_tags().items()) == sorted({
         "name": "MainTask",
         "bool_param": 0,
         "ccc.name": "TaskC",
@@ -145,20 +184,23 @@ def test_to_tags_w_parents(monkeypatch):
         bool_param: bool = luigi.BoolParameter(default=True)
         config = TaskConfig(
             experiment_name="dummy",
-            protocols=[],
+            protocols=[IMainTask, ],
             output_tags_recursively=False,
-        )
-
-        def requires(self) -> dict[str, MlflowTaskProtocol]:
-            return {
-                "bbb": TaskB(),
-                "ccc": TaskC(),
+            requirements={
+                "bbb": ITaskB,
+                "ccc": ITaskC,
             }
+        )
 
         def _run(self) -> NoReturn:
             ...
 
-    task = MainTaskWoRecursiveTags()
+    task_repo._protocols["IMainTask"].register(MainTaskWoRecursiveTags)
+    task_params["cls"] = "MainTaskWoRecursiveTags"
+    task = task_repo.generate_task_tree(
+        task_params=task_params,
+        protocol_name="IMainTask",
+    )
     TestCase().assertDictEqual(
         task.to_mlflow_tags_w_parent_tags(),
         {
@@ -168,7 +210,11 @@ def test_to_tags_w_parents(monkeypatch):
     )
 
     monkeypatch.setattr(TaskB, "output_tags_recursively", False)
-    task = MainTask()
+    task_params["cls"] = "MainTask"
+    task = task_repo.generate_task_tree(
+        task_params=task_params,
+        protocol_name="IMainTask",
+    )
     TestCase().assertDictEqual(
         task.to_mlflow_tags_w_parent_tags(),
         {
