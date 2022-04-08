@@ -36,6 +36,7 @@ class TaskA(MlflowTask):
     config = TaskConfig(
         experiment_name="task",
         protocols=[SaveCsv, ],
+        requirements=dict(),
         artifact_filenames={
             "csv": "a.csv",
         }
@@ -60,6 +61,9 @@ class TaskB(MlflowTask):
     config = TaskConfig(
         experiment_name="task",
         protocols=[SaveCsv, SaveJson],
+        requirements={
+            "a": SaveCsv,
+        },
         artifact_filenames={
             "csv": "out_b.csv",
             "json": "json.json",
@@ -72,11 +76,6 @@ class TaskB(MlflowTask):
     def save_json(self, path: Path):
         ...
 
-    def requires(self, save_csv_task: type[MlflowTaskProtocol] = Provide["SaveCsv"]) -> dict[str, MlflowTaskProtocol]:
-        return {
-            "a": save_csv_task(),
-        }
-
     def _run(self) -> NoReturn:
         df = pd.DataFrame()
         self.save_to_mlflow(
@@ -88,49 +87,74 @@ class TaskB(MlflowTask):
 
 
 @pytest.fixture()
-def runner(artifacts_server, tmpdir) -> Runner:
-    config_path = tmpdir.mkdir("sub").join("config.jsonnet")
-    with config_path.open("w") as fout:
-        fout.write('''
-                {
-                    "TaskA": {
-                        "value": 3.0,
-                    },
-                    "TaskB": {
-                        "date_start": std.extVar("DATE_START"),
-                        "int_value": 1,
-                        "message": "Hello!",
-                    }
-                }
-                ''')
+def runner(artifacts_server) -> Runner:
     runner = Runner(
         config=RunnerConfig(
             mlflow_tracking_uri=artifacts_server.url,
-            config_path=config_path,
             use_local_scheduler=True,
             create_experiment_if_not_existing=True,
         ),
         experiment_repository=TaskRepository(
             task_classes=[TaskA, TaskB],
-            dependencies={
-                "SaveCsv": "TaskA",
-                "SaveJson": "TaskB",
-            }
         )
     )
     return runner
 
 
-def test_run_multiple_tasks(runner):
-    runner.experiment_repository.inject_dependencies(
-        module_to_wire=[__name__, ],
-    )
+def test_run_with_single_param(runner, tmpdir):
+    config_path = tmpdir.mkdir("sub").join("config.jsonnet")
+    with config_path.open("w") as fout:
+        fout.write('''
+            local val = 3.0;
+            {
+                cls: "TaskB",
+                params: {
+                    date_start: "2011-11-10",
+                    int_value: 1,
+                    message: "Hello!",
+                },
+                requires: {
+                    a: {
+                        cls: "TaskA",
+                        params: {
+                            value: val,
+                        },
+                    }
+                }
+            }
+            ''')
+    runner.run("SaveJson", config_path)
+
+
+
+def test_run_multiple_tasks(runner, tmpdir):
+    config_path = tmpdir.mkdir("sub").join("config.jsonnet")
+    with config_path.open("w") as fout:
+        fout.write('''
+            local val = 3.0;
+            {
+                type: "TaskB",
+                params: {
+                    date_start: std.extVar("DATE_START"),
+                    int_value: 1,
+                    message: "Hello!",
+                },
+                requires: {
+                    a: {
+                        type: "TaskA",
+                        params: {
+                            value: val,
+                        },
+                    }
+                }
+            }
+            ''')
     invalid_params = [
         {"DATE": "2021-11-11"},
         {"DATE_START": "2021-11-11"},
     ]
     with pytest.raises(InvalidJsonnetFileError):
-        runner.run("SaveJson", external_params=invalid_params)
+        runner.run("SaveJson", config_path)
 
     # valid keys, invalid values
     invalid_params = [
@@ -138,14 +162,14 @@ def test_run_multiple_tasks(runner):
         {"DATE_START": "2021-11-11"},  # valid
     ]
     with pytest.raises(ValueError):
-        runner.run("SaveJson", external_params=invalid_params)
+        runner.run("SaveJson", config_path)
 
     valid_params = [
         {"DATE_START": "2021-11-12"},  # valid
         {"DATE_START": "2021-11-11"},  # valid
     ]
-    tasks, res = runner.run("SaveJson", external_params=valid_params)
-    assert len(tasks) == 2
+    task, res = runner.run("SaveJson", config_path)
+    assert len(task) == 2
     assert res.status == LuigiStatusCode.SUCCESS
     # Check if all the tasks ran
     for param in valid_params:

@@ -34,3 +34,21 @@ default_serializer: MlflowTagSerializer = MlflowTagSerializer(
         (datetime.date, lambda d: cast(datetime.date, d).isoformat()),
     ]
 )
+
+
+DESERIALIZERS: dict[str, Callable[[str], Any]] = {
+    "Parameter": (lambda s: s),
+    "IntParameter": (lambda s: int(s)),
+    "BoolParameter": (
+        lambda s: {
+            "True": True,
+            "1": True,
+            "true": True,
+            "False": False,
+            "0": False,
+            "false": False,
+        }[s],
+    ),
+    "FloatParameter": (lambda s: float(s)),
+    "DateParameter": (lambda s: datetime.date.fromisoformat(s)),
+}

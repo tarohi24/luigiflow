@@ -1,12 +1,9 @@
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any, Protocol
+from typing import Protocol, Any
 
-from dependency_injector import providers
-from dependency_injector.containers import DynamicContainer
-
-from luigiflow.config.jsonnet import JsonnetConfigLoader
+from luigiflow.serializer import DESERIALIZERS
 from luigiflow.task import MlflowTask
+from luigiflow.types import TaskParameter
 
 
 class TaskWithTheSameNameAlreadyRegistered(Exception):
@@ -15,6 +12,11 @@ class TaskWithTheSameNameAlreadyRegistered(Exception):
 
 class InconsistentDependencies(Exception):
     ...
+
+
+def _deserialize_params(params: dict[str, Any], task_cls: type[MlflowTask]) -> dict[str, Any]:
+    param_types = task_cls.param_types
+    return {key: DESERIALIZERS[param_types[key].__name__](val) for key, val in params.items()}
 
 
 @dataclass
@@ -39,14 +41,12 @@ class TaskRepository:
     """
     Note that this repository doesn't manage experiment names becuase that's not necessary.
     """
+
     _protocols: dict[str, ProtocolRepositoryItem]
-    dependencies: dict[str, str]
 
     def __init__(
         self,
         task_classes: list[type[MlflowTask]],
-        dependencies: dict[str, str],
-        ignore_missing_dependencies: bool = False,
     ):
         # use for loop to check if there are duplicated names
         self._protocols = dict()
@@ -60,52 +60,27 @@ class TaskRepository:
                     self._protocols[key] = ProtocolRepositoryItem(prt)
                     self._protocols[key].register(task_cls)
 
-        self.dependencies = dependencies
-        dep_keys = set(self.dependencies.keys())
-        prt_keys = set(self._protocols.keys())
-        if len(diff := (dep_keys - prt_keys)) > 0:
-            raise InconsistentDependencies(f"Unknown dependencies: {diff}")
-        if not ignore_missing_dependencies:
-            if len(diff := (prt_keys - dep_keys)) > 0:
-                raise InconsistentDependencies(f"Dependencies not specified: {diff}")
-        for protocol_name, task_name in self.dependencies.items():
-            try:
-                self._protocols[protocol_name].get(task_name)
-            except KeyError:
-                raise InconsistentDependencies(f"{task_name} not registered to {protocol_name}")
-
-    def inject_dependencies(self, module_to_wire: list[str] = None):
-        module_to_wire = module_to_wire or []
-        # inject dependencies
-        container = DynamicContainer()
-        for protocol_name, repo in self._protocols.items():
-            default_task: type[MlflowTask] = repo.get(self.dependencies[protocol_name])
-            # Don't use `providers.Factory(lambda: default)` since it returns the latest `default`,
-            # not the one at the time that `default` is specified
-            setattr(container, protocol_name, providers.Object(default_task))
-        container.wire(module_to_wire)
-
-    def generate_tasks(
+    def generate_task_tree(
         self,
+        task_params: TaskParameter,
         protocol_name: str,
-        external_params: list[dict[str, Any]],
-        context_config_path: Path,
-    ) -> list[MlflowTask]:
-        if not isinstance(external_params, list):
-            raise ValueError("Pass a list of kwargs `params`")
-        proto = self._protocols[protocol_name]
-        task_class = proto.get(self.dependencies[protocol_name])
-        tasks = []
-        if len(external_params) > 0:
-            for param in external_params:
-                config_loader = JsonnetConfigLoader(external_variables=param)
-                with config_loader.load(context_config_path):
-                    task = task_class()
-                    tasks.append(task)
+    ) -> MlflowTask:
+        cls_name = task_params["cls"]
+        task_cls = self._protocols[protocol_name].get(cls_name)
+        task_kwargs = _deserialize_params(
+            params=task_params["params"],
+            task_cls=task_cls,
+        )
+        # resolve requirements
+        if len(task_cls.requirements) == 0:
+            assert "requires" not in task_params
         else:
-            # no external params
-            config_loader = JsonnetConfigLoader()
-            with config_loader.load(context_config_path):
-                task = task_class()
-                tasks.append(task)
-        return tasks
+            assert "requires" in task_params
+            # resolve its dependency
+            for key, protocol in task_cls.requirements.items():
+                req_task_cls: MlflowTask = self.generate_task_tree(
+                    task_params["requires"][key],
+                    protocol_name=protocol.__name__,
+                )
+                task_cls.requirements_impl[key] = req_task_cls
+        return task_cls(**task_kwargs)
