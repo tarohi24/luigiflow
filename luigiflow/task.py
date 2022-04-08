@@ -2,7 +2,7 @@ import logging
 import os
 import tempfile
 from pathlib import Path
-from typing import Callable, NoReturn, Optional, TypeVar, final, Any, Protocol, runtime_checkable
+from typing import Callable, NoReturn, Optional, TypeVar, final, Any, Protocol, runtime_checkable, Generic
 
 import luigi
 import mlflow
@@ -16,7 +16,8 @@ from tqdm.contrib.logging import logging_redirect_tqdm
 
 from luigiflow.serializer import MlflowTagSerializer, MlflowTagValue, default_serializer
 
-T = TypeVar("T")
+T = TypeVar("T", bound=dict)
+K = TypeVar("K")
 
 
 class TryingToSaveUndefinedArtifact(Exception):
@@ -24,11 +25,13 @@ class TryingToSaveUndefinedArtifact(Exception):
 
 
 @runtime_checkable
-class MlflowTaskProtocol(Protocol):
+class MlflowTaskProtocol(Protocol[T]):
     """
     You can use this protocol to implement task protocols.
     Because a protocl class cannot inherit from non-protocol classes,
     you can use this instead of `MlflowTask`.
+
+    `T` is a `TypedDict` to describe `requires()`.
     """
 
     @classmethod
@@ -55,7 +58,7 @@ class MlflowTaskProtocol(Protocol):
     def input(self) -> dict[str, dict[str, LocalTarget]]:
         ...
 
-    def requires(self) -> dict[str, "MlflowTaskProtocol"]:
+    def requires(self) -> T:
         ...
 
     def to_mlflow_tags(self) -> dict[str, MlflowTagValue]:
@@ -81,7 +84,7 @@ class MlflowTaskProtocol(Protocol):
 
     def save_to_mlflow(
         self,
-        artifacts_and_save_funcs: dict[str, tuple[T, Callable[[T, str], None]]] = None,
+        artifacts_and_save_funcs: dict[str, tuple[K, Callable[[K, str], None]]] = None,
         metrics: dict[str, float] = None,
         inherit_parent_tags: bool = True,
     ):
@@ -103,7 +106,7 @@ class TaskConfig(BaseModel):
     output_tags_recursively: bool = Field(default=True)
 
 
-class MlflowTaskMeta(Register, type(Protocol)):
+class MlflowTaskMeta(Register, Generic[T], type(Protocol)):
     def __new__(mcs, classname: str, bases: tuple[type, ...], namespace: dict[str, Any]):
         cls = super(MlflowTaskMeta, mcs).__new__(mcs, classname, bases, namespace)
         try:
@@ -129,7 +132,7 @@ class MlflowTaskMeta(Register, type(Protocol)):
         return cls
 
 
-class MlflowTask(luigi.Task, MlflowTaskProtocol, metaclass=MlflowTaskMeta):
+class MlflowTask(luigi.Task, MlflowTaskProtocol[T], metaclass=MlflowTaskMeta[T]):
     """
     This is a luigi's task aiming to save artifacts and/or metrics to an mllfow expriment.
     """
@@ -178,11 +181,12 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol, metaclass=MlflowTaskMeta):
     def input(self) -> dict[str, dict[str, LocalTarget]]:
         return super(MlflowTask, self).input()
 
-    def requires(self) -> dict[str, MlflowTaskProtocol]:
+    @final
+    def requires(self) -> T:
         """
         :return: A dictionary consisting of {task_name: task}
         """
-        return dict()
+        return self.requirements_impl
 
     def to_mlflow_tags(self) -> dict[str, MlflowTagValue]:
         """
@@ -292,7 +296,7 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol, metaclass=MlflowTaskMeta):
     @final
     def save_to_mlflow(
         self,
-        artifacts_and_save_funcs: dict[str, tuple[T, Callable[[T, str], None]]] = None,
+        artifacts_and_save_funcs: dict[str, tuple[K, Callable[[K, str], None]]] = None,
         metrics: dict[str, float] = None,
         inherit_parent_tags: bool = True,
     ):

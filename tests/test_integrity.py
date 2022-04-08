@@ -1,12 +1,13 @@
 from datetime import datetime
 from pathlib import Path
-from typing import NoReturn, Protocol, runtime_checkable
+from typing import NoReturn, Protocol, runtime_checkable, TypedDict
 
 import luigi
 import pandas as pd
 import pytest
 from dependency_injector.wiring import Provide
 from luigi import LuigiStatusCode
+from luigi.execution_summary import LuigiRunResult
 
 from luigiflow.config.jsonnet import InvalidJsonnetFileError, JsonnetConfigLoader
 from luigiflow.config.run import RunnerConfig
@@ -21,6 +22,9 @@ class SaveCsv(MlflowTaskProtocol, Protocol):
 
     def save_csv(self, path: Path):
         raise NotImplementedError()
+
+    def get_value(self) -> float:
+        raise NotImplementedError
 
 
 @runtime_checkable
@@ -42,6 +46,9 @@ class TaskA(MlflowTask):
         }
     )
 
+    def get_value(self) -> float:
+        return self.value
+
     def save_csv(self, path: Path):
         ...
 
@@ -54,7 +61,11 @@ class TaskA(MlflowTask):
         )
 
 
-class TaskB(MlflowTask):
+class Requirements(TypedDict):
+    a: SaveCsv
+
+
+class TaskB(MlflowTask[Requirements]):
     date_start: datetime.date = luigi.DateParameter()
     int_value: int = luigi.IntParameter()
     message: str = luigi.Parameter()
@@ -69,6 +80,9 @@ class TaskB(MlflowTask):
             "json": "json.json",
         }
     )
+
+    def get_value(self):
+        ...
 
     def save_csv(self, path: Path):
         ...
@@ -123,8 +137,11 @@ def test_run_with_single_param(runner, tmpdir):
                 }
             }
             ''')
-    runner.run("SaveJson", config_path)
-
+    task, res = runner.run("SaveJson", config_path)
+    assert isinstance(task, TaskB)
+    assert res.status == LuigiStatusCode.SUCCESS
+    assert task.int_value == 1
+    assert task.requires()["a"].get_value() == 3.0
 
 
 def test_run_multiple_tasks(runner, tmpdir):

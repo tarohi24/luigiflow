@@ -1,7 +1,7 @@
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Any, cast
+from typing import Optional, cast
 
 import _jsonnet
 import luigi
@@ -10,8 +10,6 @@ from luigi.execution_summary import LuigiRunResult
 
 from luigiflow.config.jsonnet import InvalidJsonnetFileError
 from luigiflow.config.run import RunnerConfig
-from luigiflow.serializer import DESERIALIZERS
-from luigiflow.task import MlflowTask
 from luigiflow.task_repository import TaskRepository
 from luigiflow.types import TaskParameter
 
@@ -25,7 +23,6 @@ def _load_task_params(path: Path) -> TaskParameter:
         raise InvalidJsonnetFileError(str(e))
     data = cast(TaskParameter, json.loads(json_str))
     return data
-
 
 
 @dataclass
