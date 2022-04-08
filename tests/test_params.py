@@ -1,9 +1,12 @@
 import datetime
-from typing import TypedDict
+from typing import TypedDict, cast
 
 import luigi
+import pytest
 
 from luigiflow.task import MlflowTask, TaskConfig, MlflowTaskProtocol
+from luigiflow.task_repository import TaskRepository, UnknownParameter
+from luigiflow.types import TaskParameter
 
 
 class TaskProtocol(MlflowTaskProtocol):
@@ -11,6 +14,7 @@ class TaskProtocol(MlflowTaskProtocol):
 
 
 class TaskA(MlflowTask):
+    date_param: datetime.date = luigi.DateParameter(default=datetime.date(2021, 10, 11))
     config = TaskConfig(
         experiment_name="hi",
         protocols=[TaskProtocol, ],
@@ -34,61 +38,31 @@ class TaskB(MlflowTask[BRequirements]):
 
 
 def test_serialize_date_param():
-    task_params = {
-        "cls": "TaskB",
-        "params": {
-            "date_param": "2021-10-12",
-        },
-        "requirements": {
-            "a": {
-                "cls": "TaskA",
-            }
-        }
+    task_params: TaskParameter = {
+        "cls": "TaskA",
+        "params": dict(),
     }
-
-    config_path = tmpdir.mkdir("sub").join("config.jsonnet")
-    with config_path.open("w") as fout:
-        fout.write('''
-                local val = 3.0;
-                {
-                    type: "TaskB",
-                    params: {
-                        date_start: std.extVar("DATE_START"),
-                    },
-                    requires: {
-                        a: {
-                            type: "TaskA",
-                            params: {
-                                value: val,
-                            },
-                        }
-                    }
-                }
-                ''')
-    invalid_params = [
-        {"DATE": "2021-11-11"},
-        {"DATE_START": "2021-11-11"},
-    ]
-    with pytest.raises(InvalidJsonnetFileError):
-        runner.run("SaveJson", config_path)
-
-    # valid keys, invalid values
-    invalid_params = [
-        {"DATE_START": "hi!"},  # invalid
-        {"DATE_START": "2021-11-11"},  # valid
-    ]
+    # test default value
+    task = cast(TaskA, TaskRepository([TaskA, ]).generate_task_tree(task_params, TaskProtocol))
+    assert task.date_param == datetime.date(2021, 10, 11)
+    # test with a custom param
+    task_params["params"]["date_param"] = "2021-12-12"
+    task = cast(TaskA, TaskRepository([TaskA, ]).generate_task_tree(task_params, TaskProtocol))
+    assert task.date_param == datetime.date(2021, 12, 12)
+    # test with an invalid param
+    task_params["params"]["date_param"] = "invalid"
     with pytest.raises(ValueError):
-        runner.run("SaveJson", config_path)
+        TaskRepository([TaskA, ]).generate_task_tree(task_params, TaskProtocol)
 
-    valid_params = [
-        {"DATE_START": "2021-11-12"},  # valid
-        {"DATE_START": "2021-11-11"},  # valid
-    ]
-    task, res = runner.run("SaveJson", config_path)
-    assert len(task) == 2
-    assert res.status == LuigiStatusCode.SUCCESS
-    # Check if all the tasks ran
-    for param in valid_params:
-        config_loader = JsonnetConfigLoader(external_variables=param)
-        with config_loader.load(runner.config.config_path):
-            assert TaskA().complete()
+
+def test_inconsistent_param_name():
+    with pytest.raises(UnknownParameter):
+        TaskRepository([TaskA, ]).generate_task_tree(
+            task_params={
+                "cls": "TaskA",
+                "params": {
+                    "unknown": "hi"
+                }
+            },
+            protocol=TaskProtocol,
+        )

@@ -13,17 +13,11 @@ from luigiflow.task_repository import TaskRepository
 from luigiflow.utils.savers import save_dataframe, save_pickle, save_json
 
 
-def test_task_protocol_and_implementation_consistent():
-    assert issubclass(MlflowTask, MlflowTaskProtocol)
+class DummyProtocol(MlflowTaskProtocol):
+    ...
 
 
 def test_to_mlflow_tags(monkeypatch):
-
-    @runtime_checkable
-    class DummyProtocol(MlflowTaskProtocol, Protocol):
-
-        def do_nothing(self):
-            raise NotImplementedError()
 
     class Task(MlflowTask):
         param_int: int = luigi.IntParameter(default=10)
@@ -44,7 +38,14 @@ def test_to_mlflow_tags(monkeypatch):
         def do_nothing(self):
             ...
 
-    task = Task()
+    repo = TaskRepository([Task, ])
+    task = repo.generate_task_tree(
+        task_params={
+            "cls": "Task",
+            "params": dict(),
+        },
+        protocol="DummyProtocol",
+    )
     TestCase().assertDictEqual(
         task.to_mlflow_tags(),
         {
@@ -66,17 +67,26 @@ def test_to_mlflow_tags(monkeypatch):
     }
     assert task.to_mlflow_tags() == expected
 
-    class AnotherTask(Task):
-        strange_param = luigi.Parameter(default=Task())  # invalid value
+    class AnotherTask(MlflowTask):
+        strange_param = luigi.Parameter(default=Task)  # invalid value
         config = TaskConfig(
             experiment_name="dummy",
-            protocols=[],
+            protocols=[DummyProtocol, ],
             requirements=dict(),
             artifact_filenames=dict(),
         )
 
+    repo._protocols["DummyProtocol"].register(AnotherTask)
+    task = repo.generate_task_tree(
+        task_params={
+            "cls": "AnotherTask",
+            "params": dict(),
+        },
+        protocol="DummyProtocol",
+    )
+
     with pytest.raises(TypeError):
-        AnotherTask().to_mlflow_tags()
+        task.to_mlflow_tags()
 
 
 def test_to_tags_w_parents(monkeypatch):
@@ -165,7 +175,7 @@ def test_to_tags_w_parents(monkeypatch):
     }
     main_task = task_repo.generate_task_tree(
         task_params=task_params,
-        protocol_name="IMainTask",
+        protocol="IMainTask",
     )
 
     assert sorted(main_task.to_mlflow_tags_w_parent_tags().items()) == sorted({
@@ -199,7 +209,7 @@ def test_to_tags_w_parents(monkeypatch):
     task_params["cls"] = "MainTaskWoRecursiveTags"
     task = task_repo.generate_task_tree(
         task_params=task_params,
-        protocol_name="IMainTask",
+        protocol="IMainTask",
     )
     TestCase().assertDictEqual(
         task.to_mlflow_tags_w_parent_tags(),
@@ -213,7 +223,7 @@ def test_to_tags_w_parents(monkeypatch):
     task_params["cls"] = "MainTask"
     task = task_repo.generate_task_tree(
         task_params=task_params,
-        protocol_name="IMainTask",
+        protocol="IMainTask",
     )
     TestCase().assertDictEqual(
         task.to_mlflow_tags_w_parent_tags(),
@@ -236,7 +246,7 @@ def test_save_artifacts(artifacts_server):
                 "csv": "df.csv",
                 "pickle": "df.pickle",
             },
-            protocols=[],
+            protocols=[DummyProtocol, ],
         )
 
         def _run(self) -> NoReturn:
@@ -253,7 +263,12 @@ def test_save_artifacts(artifacts_server):
                 }
             )
 
-    task = Task()
+    task = TaskRepository([Task, ]).generate_task_tree(
+        task_params={
+            "cls": "Task",
+        },
+        protocol="DummyProtocol",
+    )
     assert task.output() is None
     task.run()
     # Check if the artifacts are saved
@@ -268,10 +283,10 @@ def test_save_artifacts_but_files_are_mismatched(artifacts_server):
     class InvalidTask(MlflowTask):
         config = TaskConfig(
             experiment_name="dummy",
-            protocols=[],
+            protocols=[DummyProtocol, ],
             artifact_filenames={
                 "csv": "csv.csv",
-            }
+            },
         )
 
         def _run(self) -> NoReturn:
@@ -281,7 +296,10 @@ def test_save_artifacts_but_files_are_mismatched(artifacts_server):
                 }
             )
 
-    task = InvalidTask()
+    task = TaskRepository([InvalidTask, ]).generate_task_tree(
+        task_params={"cls": "InvalidTask"},
+        protocol=DummyProtocol,
+    )
     assert task.output() is None
     with pytest.raises(TryingToSaveUndefinedArtifact):
         task.run()

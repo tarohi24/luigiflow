@@ -41,7 +41,7 @@ class Runner:
     ) -> RunReturn:
         task_params = _load_task_params(path=config_jsonnet_path)
         task = self.experiment_repository.generate_task_tree(
-            protocol_name=protocol_name,
+            protocol=protocol_name,
             task_params=task_params,
         )
         experiment_name = task.get_experiment_name()

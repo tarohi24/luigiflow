@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Protocol, Any
+from typing import Protocol, Any, Union
 
 from luigiflow.serializer import DESERIALIZERS
 from luigiflow.task import MlflowTask, MlflowTaskProtocol
@@ -18,9 +18,24 @@ class ProtocolNotRegistered(Exception):
     ...
 
 
+class UnknownParameter(Exception):
+    ...
+
+
 def _deserialize_params(params: dict[str, Any], task_cls: type[MlflowTask]) -> dict[str, Any]:
     param_types = task_cls.param_types
-    return {key: DESERIALIZERS[param_types[key].__name__](val) for key, val in params.items()}
+    try:
+        deserializers = {
+            key: DESERIALIZERS[param_types[key].__name__]
+            for key in params.keys()
+        }
+    except KeyError as e:
+        raise UnknownParameter(str(e))
+    return {
+        key: deserializers[key](val)
+        for key, val in params.items()
+    }
+
 
 
 @dataclass
@@ -65,13 +80,18 @@ class TaskRepository:
     def generate_task_tree(
         self,
         task_params: TaskParameter,
-        protocol_name: str,
+        protocol: Union[str, type[MlflowTaskProtocol]],
     ) -> MlflowTask:
+        protocol: str = (
+            protocol
+            if isinstance(protocol, str)
+            else protocol.__name__
+        )
         cls_name = task_params["cls"]
         try:
-            protocol_item = self._protocols[protocol_name]
+            protocol_item = self._protocols[protocol]
         except KeyError:
-            raise ProtocolNotRegistered(f"Unknown protocol: {protocol_name}")
+            raise ProtocolNotRegistered(f"Unknown protocol: {protocol}")
         task_cls: type[MlflowTask] = protocol_item.get(cls_name)
         task_kwargs = _deserialize_params(
             params=task_params.get("params", dict()),  # allow empty params
@@ -88,7 +108,7 @@ class TaskRepository:
             for key, protocol in requirements.items():
                 req_task_cls: MlflowTask = self.generate_task_tree(
                     task_params["requires"][key],
-                    protocol_name=protocol.__name__,
+                    protocol=protocol.__name__,
                 )
                 requirements_impl[key] = req_task_cls
         return task_cls(requirements_impl=requirements_impl, **task_kwargs)

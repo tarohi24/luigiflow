@@ -93,5 +93,5 @@ def test_unknown_protocol():
                     },
                 }
             },
-            protocol_name="DoNothingProtocol"
+            protocol="DoNothingProtocol"
         )
