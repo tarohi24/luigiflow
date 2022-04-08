@@ -1,8 +1,6 @@
-from pathlib import Path
-from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
-from pydantic import BaseModel, HttpUrl, Field
+from pydantic import BaseModel, Field
 
 
 class RunnerConfig(BaseModel):

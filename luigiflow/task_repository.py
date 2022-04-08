@@ -22,31 +22,32 @@ class UnknownParameter(Exception):
     ...
 
 
-def _deserialize_params(params: dict[str, Any], task_cls: type[MlflowTask]) -> dict[str, Any]:
+def _deserialize_params(
+    params: dict[str, Any], task_cls: type[MlflowTask]
+) -> dict[str, Any]:
     param_types = task_cls.param_types
     try:
         deserializers = {
-            key: DESERIALIZERS[param_types[key].__name__]
-            for key in params.keys()
+            key: DESERIALIZERS[param_types[key].__name__] for key in params.keys()
         }
     except KeyError as e:
         raise UnknownParameter(str(e))
-    return {
-        key: deserializers[key](val)
-        for key, val in params.items()
-    }
-
+    return {key: deserializers[key](val) for key, val in params.items()}
 
 
 @dataclass
 class ProtocolRepositoryItem:
     protocol_type: type[Protocol]
-    _task_class_dict: dict[str, type[MlflowTask]] = field(init=False, default_factory=dict)
+    _task_class_dict: dict[str, type[MlflowTask]] = field(
+        init=False, default_factory=dict
+    )
 
     def register(self, task_class: type[MlflowTask]):
         key = task_class.__name__
         if key in self._task_class_dict:
-            raise TaskWithTheSameNameAlreadyRegistered(f"{key} already registered in {self.protocol_type}")
+            raise TaskWithTheSameNameAlreadyRegistered(
+                f"{key} already registered in {self.protocol_type}"
+            )
         self._task_class_dict[key] = task_class
 
     def get(self, task_name: str) -> type[MlflowTask]:
@@ -82,11 +83,7 @@ class TaskRepository:
         task_params: TaskParameter,
         protocol: Union[str, type[MlflowTaskProtocol]],
     ) -> MlflowTask:
-        protocol: str = (
-            protocol
-            if isinstance(protocol, str)
-            else protocol.__name__
-        )
+        protocol: str = protocol if isinstance(protocol, str) else protocol.__name__
         cls_name = task_params["cls"]
         try:
             protocol_item = self._protocols[protocol]

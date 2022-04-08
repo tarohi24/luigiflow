@@ -16,7 +16,6 @@ from luigiflow.utils.savers import save_dataframe
 
 @runtime_checkable
 class SaveCsv(MlflowTaskProtocol, Protocol):
-
     def save_csv(self, path: Path):
         raise NotImplementedError()
 
@@ -26,7 +25,6 @@ class SaveCsv(MlflowTaskProtocol, Protocol):
 
 @runtime_checkable
 class SaveJson(MlflowTaskProtocol, Protocol):
-
     def save_json(self, path: Path):
         raise NotImplementedError()
 
@@ -36,11 +34,13 @@ class TaskA(MlflowTask):
 
     config = TaskConfig(
         experiment_name="task",
-        protocols=[SaveCsv, ],
+        protocols=[
+            SaveCsv,
+        ],
         requirements=dict(),
         artifact_filenames={
             "csv": "a.csv",
-        }
+        },
     )
 
     def get_value(self) -> float:
@@ -75,7 +75,7 @@ class TaskB(MlflowTask[Requirements]):
         artifact_filenames={
             "csv": "out_b.csv",
             "json": "json.json",
-        }
+        },
     )
 
     def get_value(self):
@@ -107,7 +107,7 @@ def runner(artifacts_server) -> Runner:
         ),
         experiment_repository=TaskRepository(
             task_classes=[TaskA, TaskB],
-        )
+        ),
     )
     return runner
 
@@ -116,7 +116,8 @@ def runner(artifacts_server) -> Runner:
 def sample_task_param_path(tmpdir) -> Path:
     config_path = tmpdir.mkdir("sub").join("config.jsonnet")
     with config_path.open("w") as fout:
-        fout.write('''
+        fout.write(
+            """
                 local val = 3.0;
                 {
                     cls: "TaskB",
@@ -134,7 +135,8 @@ def sample_task_param_path(tmpdir) -> Path:
                         }
                     }
                 }
-                ''')
+                """
+        )
     return config_path
 
 
