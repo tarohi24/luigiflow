@@ -47,7 +47,7 @@ DESERIALIZERS: dict[str, Callable[[str], Any]] = {
             "False": False,
             "0": False,
             "false": False,
-        }[s],
+        }[s]
     ),
     "FloatParameter": (lambda s: float(s)),
     "DateParameter": (lambda s: datetime.date.fromisoformat(s)),

@@ -32,7 +32,7 @@ def _deserialize_params(
         }
     except KeyError as e:
         raise UnknownParameter(str(e))
-    return {key: deserializers[key](val) for key, val in params.items()}
+    return {key: deserializers[key](str(val)) for key, val in params.items()}
 
 
 @dataclass
