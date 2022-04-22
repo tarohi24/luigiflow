@@ -262,12 +262,17 @@ def test_to_tags_w_parents(monkeypatch):
 
 
 def test_save_artifacts(artifacts_server):
+    def dummy_fn(path: str):
+        with open(path, "w") as fout:
+            fout.write("hello!\n")
+
     class Task(MlflowTask):
         config = TaskConfig(
             experiment_name="dummy",
             artifact_filenames={
                 "csv": "df.csv",
                 "pickle": "df.pickle",
+                "text": "text.txt",
             },
             protocols=[
                 DummyProtocol,
@@ -285,6 +290,7 @@ def test_save_artifacts(artifacts_server):
                 artifacts_and_save_funcs={
                     "csv": (df, save_dataframe),
                     "pickle": (df, save_pickle),
+                    "text": dummy_fn,
                 }
             )
 
@@ -302,6 +308,9 @@ def test_save_artifacts(artifacts_server):
     pd.read_csv(paths["csv"].path)
     with open(paths["pickle"].path, "rb") as fin:
         pickle.load(fin)
+    with open(paths["text"].path) as fin:
+        text = fin.read()
+    assert text == "hello!\n"
 
 
 def test_save_artifacts_but_files_are_mismatched(artifacts_server):
