@@ -1,5 +1,6 @@
 from typing import Protocol, NoReturn, runtime_checkable
 
+import luigi
 import pytest
 
 from luigiflow.task import MlflowTask, TaskConfig, MlflowTaskProtocol
@@ -109,3 +110,75 @@ def test_unknown_protocol():
             },
             protocol="DoNothingProtocol",
         )
+
+
+def test_recursively_nested_task():
+    class TaskA(MlflowTask):
+        param: str = luigi.Parameter()
+        config = TaskConfig(
+            experiment_name="hi",
+            protocols=[
+                DoNothingProtocol,
+            ],
+            requirements={
+                "req": DoNothingProtocol,
+            },
+            artifact_filenames=dict(),
+        )
+
+    class TaskB(MlflowTask):
+        config = TaskConfig(
+            experiment_name="hi",
+            protocols=[
+                DoNothingProtocol,
+            ],
+            requirements={
+                "req": DoNothingProtocol,
+            },
+            artifact_filenames=dict(),
+        )
+
+    class TaskC(MlflowTask):
+        config = TaskConfig(
+            experiment_name="hi",
+            protocols=[
+                DoNothingProtocol,
+            ],
+            requirements=dict(),
+            artifact_filenames=dict(),
+        )
+
+    repo = TaskRepository(
+        task_classes=[
+            TaskA,
+            TaskB,
+            TaskC,
+        ],
+    )
+    repo.generate_task_tree(
+        task_params={
+            "cls": "TaskA",
+            "params": {
+                "param": "top",
+            },
+            "requires": {
+                "req": {
+                    "cls": "TaskB",
+                    "requires": {
+                        "req": {
+                            "cls": "TaskA",
+                            "params": {
+                                "param": "bottom",
+                            },
+                            "requires": {
+                                "req": {
+                                    "cls": "TaskC",
+                                },
+                            },
+                        }
+                    }
+                }
+            },
+        },
+        protocol="DoNothingProtocol",
+    )
