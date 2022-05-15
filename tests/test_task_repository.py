@@ -112,7 +112,7 @@ def test_unknown_protocol():
         )
 
 
-def test_recursively_nested_task():
+def test_recursively_nested_task(artifacts_server):
     class TaskA(MlflowTask):
         param: str = luigi.Parameter()
         config = TaskConfig(
@@ -155,7 +155,7 @@ def test_recursively_nested_task():
             TaskC,
         ],
     )
-    repo.generate_task_tree(
+    task: MlflowTask = repo.generate_task_tree(
         task_params={
             "cls": "TaskA",
             "params": {
@@ -182,3 +182,6 @@ def test_recursively_nested_task():
         },
         protocol="DoNothingProtocol",
     )
+    tags = task.to_mlflow_tags_w_parent_tags()
+    assert tags["param"] == "top"
+    task.complete()
