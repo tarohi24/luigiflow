@@ -135,6 +135,7 @@ class MlflowTaskMeta(Register, Generic[T], type(Protocol)):
         cls.param_types = {
             key: type(maybe_param) for key, maybe_param in namespace.items() if isinstance(maybe_param, luigi.Parameter)
         }
+        cls.disable_instance_cache()
         return cls
 
     def __call__(cls, requirements_impl: T, *args, **kwargs):

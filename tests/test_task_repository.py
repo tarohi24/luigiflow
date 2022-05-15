@@ -172,7 +172,12 @@ def test_recursively_nested_task(artifacts_server):
                             },
                             "requires": {
                                 "req": {
-                                    "cls": "TaskC",
+                                    "cls": "TaskB",
+                                    "requires": {
+                                        "req": {
+                                            "cls": "TaskC",
+                                        }
+                                    }
                                 },
                             },
                         }
