@@ -1,18 +1,23 @@
+import json
+from pathlib import Path
 from typing import Protocol, NoReturn, runtime_checkable
 
 import luigi
 import pytest
 
+from luigiflow.config import RunnerConfig
+from luigiflow.runner import Runner
 from luigiflow.task import MlflowTask, TaskConfig, MlflowTaskProtocol
 from luigiflow.task_repository import (
     TaskRepository,
     TaskWithTheSameNameAlreadyRegistered,
     ProtocolNotRegistered,
 )
+from luigiflow.utils.savers import save_json
 
 
 @runtime_checkable
-class DoNothingProtocol(MlflowTaskProtocol, Protocol):
+class AProtocol(MlflowTaskProtocol, Protocol):
     def do_nothing(self):
         raise NotImplementedError()
 
@@ -27,7 +32,7 @@ class DoNothingImpl(MlflowTask):
     config = TaskConfig(
         experiment_name="do_nothing",
         protocols=[
-            DoNothingProtocol,
+            AProtocol,
         ],
         requirements=dict(),
     )
@@ -40,18 +45,19 @@ class DoNothingImpl(MlflowTask):
 
 
 class NewTask(MlflowTask):
+    param: str = luigi.Parameter()
     config = TaskConfig(
         experiment_name="x",
         protocols=[
             AnotherProtocol,
         ],
         requirements={
-            "1": DoNothingProtocol,
+            "1": AProtocol,
         },
     )
 
     def _run(self) -> NoReturn:
-        ...
+        self.save_to_mlflow()
 
     def method_a(self):
         ...
@@ -84,7 +90,7 @@ def test_unknown_protocol():
         config = TaskConfig(
             experiment_name="hi",
             protocols=[
-                DoNothingProtocol,
+                AProtocol,
             ],
             requirements={
                 "unknown": UnknownProtocol,
@@ -118,10 +124,10 @@ def test_recursively_nested_task(artifacts_server):
         config = TaskConfig(
             experiment_name="hi",
             protocols=[
-                DoNothingProtocol,
+                AProtocol,
             ],
             requirements={
-                "req": DoNothingProtocol,
+                "req": AProtocol,
             },
             artifact_filenames=dict(),
         )
@@ -130,10 +136,10 @@ def test_recursively_nested_task(artifacts_server):
         config = TaskConfig(
             experiment_name="hi",
             protocols=[
-                DoNothingProtocol,
+                AProtocol,
             ],
             requirements={
-                "req": DoNothingProtocol,
+                "req": AProtocol,
             },
             artifact_filenames=dict(),
         )
@@ -142,7 +148,7 @@ def test_recursively_nested_task(artifacts_server):
         config = TaskConfig(
             experiment_name="hi",
             protocols=[
-                DoNothingProtocol,
+                AProtocol,
             ],
             requirements=dict(),
             artifact_filenames=dict(),
@@ -185,8 +191,65 @@ def test_recursively_nested_task(artifacts_server):
                 }
             },
         },
-        protocol="DoNothingProtocol",
+        protocol="AProtocol",
     )
     tags = task.to_mlflow_tags_w_parent_tags()
     assert tags["param"] == "top"
-    task.complete()
+
+
+def test_too_many_tags(artifacts_server, tmpdir):
+
+    class DoSomething(MlflowTask):
+        value: str = luigi.IntParameter(default=1)
+        config = TaskConfig(
+            experiment_name="hi",
+            protocols=[
+                AProtocol,
+            ],
+            requirements=dict(),
+            artifact_filenames=dict(
+                out="out.jsonl",
+            ),
+        )
+
+        def _run(self) -> NoReturn:
+            self.save_to_mlflow(
+                artifacts_and_save_funcs={
+                    "out": (dict(), save_json),
+                }
+            )
+
+    runner = Runner(
+        config=RunnerConfig(
+            mlflow_tracking_uri=artifacts_server.url,
+            use_local_scheduler=True,
+            create_experiment_if_not_existing=True,
+        ),
+        experiment_repository=TaskRepository(
+            task_classes=[DoSomething, NewTask],
+        ),
+    )
+    d = Path(tmpdir.join("sub"))
+    d.mkdir()
+    config_path = d / "config.jsonnet"
+    with open(config_path, "w") as fout:
+        json.dump(
+            {
+                "cls": "NewTask",
+                "params": {
+                    "param": "test" * 500,  # a long query
+                },
+                "requires": {
+                    "1": {
+                        "cls": "DoSomething",
+                    }
+                }
+            },
+            fout
+        )
+    task, res = runner.run(
+        protocol_name="AnotherProtocol",
+        config_jsonnet_path=config_path,
+        dry_run=False,
+    )
+    assert task.complete()

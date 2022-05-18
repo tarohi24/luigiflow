@@ -19,7 +19,7 @@ import luigi
 import mlflow
 from luigi import LocalTarget
 from luigi.task_register import Register
-from mlflow.entities import Experiment, Run
+from mlflow.entities import Experiment, Run, RunInfo
 from mlflow.protos.service_pb2 import ACTIVE_ONLY, RunStatus
 from pydantic import BaseModel, Field
 from tqdm.auto import tqdm
@@ -250,19 +250,37 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[T], metaclass=MlflowTaskMeta[T])
         experiment: Optional[Experiment] = mlflow.get_experiment_by_name(self.get_experiment_name())
         if experiment is None:
             return None
-        query_items = [f'tag.{pname} = "{pval}"' for pname, pval in self.to_mlflow_tags_w_parent_tags().items()]
-        query = " and ".join(query_items)
-        res = mlflow.search_runs(
+        # query_items = [f'tag.{pname} = "{pval}"' for pname, pval in ]
+        # query = " and ".join(query_items)
+        df = mlflow.search_runs(
             experiment_ids=[
                 experiment.experiment_id,
             ],
-            filter_string=query,
-            max_results=1,
             run_view_type=view_type,
-            output_format="list",
+            output_format="pandas",
         )
-        if len(res) > 0:
-            return res[0]
+        for tag_name, pval in self.to_mlflow_tags_w_parent_tags().items():
+            pname = f"tags.{tag_name}"
+            if pname not in df.columns:
+                return None
+            df = df[df[pname] == str(pval)]
+        if len(df) > 0:
+            assert len(df) == 1
+            row = df.to_dict("records")[0]
+            return Run(  # note that this convert is not complete
+                run_info=RunInfo(
+                    run_uuid=row["run_id"],
+                    experiment_id=row["experiment_id"],
+                    user_id=row["tags.mlflow.user"],
+                    status=row["status"],
+                    start_time=row["start_time"],
+                    end_time=row["end_time"],
+                    lifecycle_stage="",
+                    artifact_uri=row["artifact_uri"],
+                    run_id=row["run_id"],
+                ),
+                run_data=None,
+            )
         else:
             return None
 
