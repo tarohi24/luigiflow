@@ -21,7 +21,7 @@ from luigi import LocalTarget
 from luigi.task_register import Register
 from mlflow.entities import Experiment, Run, RunInfo
 from mlflow.protos.service_pb2 import ACTIVE_ONLY, RunStatus
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 from tqdm.auto import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
@@ -108,10 +108,19 @@ class MlflowTaskProtocol(Protocol[T]):
         ...
 
 
+class OptionalTask(BaseModel):
+    base_cls: type[Protocol]
+
+    @validator("base_cls")
+    def check_is_base_cls_a_task_protocol(cls, v):
+        assert issubclass(v, MlflowTaskProtocol)
+        return v
+
+
 class TaskConfig(BaseModel):
     experiment_name: str
     protocols: list[type[MlflowTaskProtocol]]
-    requirements: dict[str, type[MlflowTaskProtocol]] = Field(default_factory=dict)
+    requirements: dict[str, Union[type[MlflowTaskProtocol], OptionalTask]] = Field(default_factory=dict)
     artifact_filenames: dict[str, str] = Field(default_factory=dict)
     tags_to_exclude: set[str] = Field(default_factory=set)
     output_tags_recursively: bool = Field(default=True)
@@ -128,7 +137,17 @@ class MlflowTaskMeta(Register, Generic[T], type(Protocol)):
             raise ValueError(f"Experiment name not set for {classname}")
         cls.experiment_name = config.experiment_name
         cls.protocols = config.protocols
-        cls.requirements = config.requirements
+        cls.requirements = dict()
+        cls.requirements_required = dict()
+        for key, maybe_req_type in config.requirements.items():
+            if isinstance(maybe_req_type, OptionalTask):
+                cls.requirements[key] = maybe_req_type.base_cls
+                cls.requirements_required[key] = False
+            else:
+                # not generics, i.e., should be `MlflowTaskProtocol`
+                cls.requirements[key] = maybe_req_type
+                cls.requirements_required[key] = True
+
         cls.tags_to_exclude = config.tags_to_exclude
         cls.output_tags_recursively = config.output_tags_recursively
         cls.artifact_filenames = config.artifact_filenames
@@ -148,7 +167,13 @@ class MlflowTaskMeta(Register, Generic[T], type(Protocol)):
         :return:
         """
         instance = super(MlflowTaskMeta, cls).__call__(*args, **kwargs)
-        instance.requirements_impl = requirements_impl
+        instance.requirements_impl = dict()
+        for key, maybe_impl in requirements_impl.items():
+            if maybe_impl is None:
+                assert not cls.requirements_required[key]
+                instance.requirements_impl[key] = None
+            else:
+                instance.requirements_impl[key] = maybe_impl
         return instance
 
 

@@ -1,13 +1,13 @@
 import json
 from pathlib import Path
-from typing import Protocol, NoReturn, runtime_checkable
+from typing import Protocol, NoReturn, runtime_checkable, TypedDict, Optional
 
 import luigi
 import pytest
 
 from luigiflow.config import RunnerConfig
 from luigiflow.runner import Runner
-from luigiflow.task import MlflowTask, TaskConfig, MlflowTaskProtocol
+from luigiflow.task import MlflowTask, TaskConfig, MlflowTaskProtocol, OptionalTask
 from luigiflow.task_repository import (
     TaskRepository,
     TaskWithTheSameNameAlreadyRegistered,
@@ -183,11 +183,11 @@ def test_recursively_nested_task(artifacts_server):
                                         "req": {
                                             "cls": "TaskC",
                                         }
-                                    }
+                                    },
                                 },
                             },
                         }
-                    }
+                    },
                 }
             },
         },
@@ -198,7 +198,6 @@ def test_recursively_nested_task(artifacts_server):
 
 
 def test_too_many_tags(artifacts_server, tmpdir):
-
     class DoSomething(MlflowTask):
         value: str = luigi.IntParameter(default=1)
         config = TaskConfig(
@@ -243,9 +242,9 @@ def test_too_many_tags(artifacts_server, tmpdir):
                     "1": {
                         "cls": "DoSomething",
                     }
-                }
+                },
             },
-            fout
+            fout,
         )
     task, res = runner.run(
         protocol_name="AnotherProtocol",
@@ -253,3 +252,127 @@ def test_too_many_tags(artifacts_server, tmpdir):
         dry_run=False,
     )
     assert task.complete()
+
+
+@pytest.mark.parametrize(
+    "maybe_task, config, is_ok",
+    [
+        (
+            AProtocol,
+            {
+                "cls": "TaskB",
+                "requires": {
+                    "maybe_task": None,
+                },
+            },
+            False,
+        ),
+        (
+            OptionalTask(base_cls=AProtocol),
+            {
+                "cls": "TaskB",
+                "requires": {
+                    "maybe_task": None,
+                },
+            },
+            True,
+        ),
+        (
+            AProtocol,
+            {
+                "cls": "TaskB",
+                "requires": {
+                    "maybe_task": {
+                        "cls": "TaskA",
+                    },
+                },
+            },
+            True,
+        ),
+        (
+            OptionalTask(base_cls=AProtocol),
+            {
+                "cls": "TaskB",
+                "requires": {
+                    "maybe_task": {
+                        "cls": "TaskA",
+                    },
+                },
+            },
+            True,
+        ),
+    ],
+)
+def test_allow_null_requirements(artifacts_server, tmpdir, maybe_task, config, is_ok):
+    class Requirements(TypedDict):
+        maybe_task: Optional[AProtocol]
+
+    class TaskA(MlflowTask):
+        config = TaskConfig(
+            experiment_name="hi",
+            protocols=[AProtocol],
+            requirements=dict(),
+            artifact_filenames={
+                "hi": "hi.json",
+            },
+        )
+
+        def _run(self) -> NoReturn:
+            self.save_to_mlflow(
+                artifacts_and_save_funcs={
+                    "hi": (dict(), save_json),
+                }
+            )
+
+    class TaskB(MlflowTask[Requirements]):
+        config = TaskConfig(
+            experiment_name="hi",
+            protocols=[AnotherProtocol],
+            requirements={  # type: ignore
+                "maybe_task": maybe_task,
+            },
+            artifact_filenames={
+                "tmp": "tmp.json",
+            },
+        )
+
+        def _run(self) -> NoReturn:
+            self.save_to_mlflow(
+                artifacts_and_save_funcs={
+                    "tmp": (
+                        dict(),
+                        save_json,
+                    )
+                }
+            )
+
+    runner = Runner(
+        config=RunnerConfig(
+            mlflow_tracking_uri=artifacts_server.url,
+            use_local_scheduler=True,
+            create_experiment_if_not_existing=True,
+        ),
+        experiment_repository=TaskRepository(
+            task_classes=[TaskA, TaskB],
+        ),
+    )
+
+    d = tmpdir.join("sub")
+    d.mkdir()
+    config_path = d / "config.jsonnet"
+    with open(config_path, "w") as fout:
+        json.dump(config, fout)
+    if is_ok:
+        task, res = runner.run(
+            protocol_name="AnotherProtocol",
+            config_jsonnet_path=config_path,
+            dry_run=False,
+        )
+        assert task.complete()
+    else:
+        with pytest.raises(AssertionError):
+            runner.run(
+                protocol_name="AnotherProtocol",
+                config_jsonnet_path=config_path,
+                dry_run=False,
+            )
