@@ -7,7 +7,7 @@ import pytest
 
 from luigiflow.config import RunnerConfig
 from luigiflow.runner import Runner
-from luigiflow.task import MlflowTask, TaskConfig, MlflowTaskProtocol, OptionalTask
+from luigiflow.task import MlflowTask, TaskConfig, MlflowTaskProtocol, OptionalTask, TaskList
 from luigiflow.task_repository import (
     TaskRepository,
     TaskWithTheSameNameAlreadyRegistered,
@@ -376,3 +376,108 @@ def test_allow_null_requirements(artifacts_server, tmpdir, maybe_task, config, i
                 config_jsonnet_path=config_path,
                 dry_run=False,
             )
+
+
+def test_list_requirements(artifacts_server, tmpdir):
+    class TaskA(MlflowTask):
+        value: int = luigi.IntParameter()
+        config = TaskConfig(
+            experiment_name="hi",
+            protocols=[AProtocol],
+            requirements=dict(),
+            artifact_filenames={
+                "data": "data.json",
+            },
+        )
+
+        def _run(self) -> NoReturn:
+            self.save_to_mlflow(
+                artifacts_and_save_funcs={
+                    "data": (dict(), save_json),
+                }
+            )
+
+    class TaskC(MlflowTask):
+        value: int = luigi.IntParameter()
+        config = TaskConfig(
+            experiment_name="hi",
+            protocols=[AnotherProtocol],
+            requirements=dict(),
+            artifact_filenames={
+                "data": "data.json",
+            },
+        )
+
+        def _run(self) -> NoReturn:
+            self.save_to_mlflow(
+                artifacts_and_save_funcs={
+                    "data": (dict(), save_json),
+                }
+            )
+
+    class TaskB(MlflowTask):
+        text: str = luigi.Parameter()
+        config = TaskConfig(
+            experiment_name="hi",
+            protocols=[AnotherProtocol],
+            requirements={
+                "a": TaskList(AProtocol),
+                "c": AnotherProtocol,
+            },
+            artifact_filenames={
+                "data": "data.json",
+            },
+        )
+
+    config = """
+    {
+        cls: "TaskB",
+        requires: {
+            a: [
+                {
+                    "cls": "TaskA",
+                    "params": {
+                        "value": 1,
+                    },
+                },
+                {
+                    "cls": "TaskA",
+                    "params": {
+                        "value": 2,
+                    },
+                },
+            ],
+            c: {
+                cls: "TaskC",
+                params: {
+                    value: 10,
+                }
+            },
+        },
+        params: {
+            text: "hello",
+        }
+    }
+    """
+    d = tmpdir.join("d")
+    d.mkdir()
+    config_path = Path(d) / "config.jsonnet"
+    with open(config_path, "w") as fout:
+        fout.write(config)
+
+    runner = Runner(
+        config=RunnerConfig(
+            mlflow_tracking_uri=artifacts_server.url,
+            use_local_scheduler=True,
+            create_experiment_if_not_existing=True,
+        ),
+        experiment_repository=TaskRepository(
+            task_classes=[TaskA, TaskB, TaskC],
+        ),
+    )
+    task, _ = runner.run(
+        protocol_name="AnotherProtocol",
+        config_jsonnet_path=config_path,
+        dry_run=False,
+    )
+    assert task.complete()

@@ -1,6 +1,7 @@
 import logging
 import os
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 from typing import (
     Callable,
@@ -117,10 +118,71 @@ class OptionalTask(BaseModel):
         return v
 
 
+V = TypeVar("V", bound=type[MlflowTaskProtocol])
+
+
+@dataclass
+class TaskList(Generic[V]):
+    protocol: type[V]
+
+
+RequirementProtocol = Union[type[MlflowTaskProtocol], OptionalTask, TaskList]
+
+
+_T = TypeVar("_T", bound=MlflowTaskProtocol)
+
+
+class TaskImplementationListMeta(Register, Generic[_T]):
+    def __call__(cls, implementations: list[_T], *args, **kwargs):
+        instance = super(TaskImplementationListMeta, cls).__call__(*args, **kwargs)
+        instance.implementations = implementations
+        return instance
+
+
+@dataclass(init=False)
+class TaskImplementationList(Generic[_T], luigi.Task, metaclass=TaskImplementationListMeta):
+    implementations: list[_T]
+
+    def requires(self) -> list[_T]:
+        return self.implementations
+
+    def run(self):
+        for task in self.implementations:
+            task.run()
+
+    def output(self):
+        raise NotImplementedError
+
+    def complete(self):
+        return all(impl.complete() for impl in self.implementations)
+
+    # I couldn't find a way to add type-hinting for this method,
+    # since the name of methods (and their types) cannot be determined until runtime,
+    def apply(self, fn: str, **kwargs) -> list[Any]:
+        callables: list[Callable] = [getattr(impl, fn) for impl in self.implementations]
+        assert all(callable(maybe_callable) for maybe_callable in callables)
+        return [cb(**kwargs) for cb in callables]
+
+    def __hash__(self) -> int:
+        return hash(impl for impl in self.implementations)
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, TaskImplementationList):
+            return False
+        other_impls = other.implementations
+        my_impls = self.implementations
+        if len(other_impls) != len(my_impls):
+            return False
+        for a, b in zip(other_impls, my_impls):
+            if a != b:
+                return False
+        return True
+
+
 class TaskConfig(BaseModel):
     experiment_name: str
     protocols: list[type[MlflowTaskProtocol]]
-    requirements: dict[str, Union[type[MlflowTaskProtocol], OptionalTask]] = Field(default_factory=dict)
+    requirements: dict[str, RequirementProtocol] = Field(default_factory=dict)
     artifact_filenames: dict[str, str] = Field(default_factory=dict)
     tags_to_exclude: set[str] = Field(default_factory=set)
     output_tags_recursively: bool = Field(default=True)
@@ -143,6 +205,9 @@ class MlflowTaskMeta(Register, Generic[T], type(Protocol)):
             if isinstance(maybe_req_type, OptionalTask):
                 cls.requirements[key] = maybe_req_type.base_cls
                 cls.requirements_required[key] = False
+            elif isinstance(maybe_req_type, TaskList):
+                cls.requirements[key] = maybe_req_type
+                cls.requirements_required[key] = True
             else:
                 # not generics, i.e., should be `MlflowTaskProtocol`
                 cls.requirements[key] = maybe_req_type
@@ -157,6 +222,7 @@ class MlflowTaskMeta(Register, Generic[T], type(Protocol)):
         cls.disable_instance_cache()
         return cls
 
+    # `T` is an `MlflowTask` class
     def __call__(cls, requirements_impl: T, *args, **kwargs):
         """
         This specifies how to instantiate `MlflowTask`, i.e. this is `Mlflow.__init__`.
@@ -170,8 +236,12 @@ class MlflowTaskMeta(Register, Generic[T], type(Protocol)):
         instance.requirements_impl = dict()
         for key, maybe_impl in requirements_impl.items():
             if maybe_impl is None:
-                assert not cls.requirements_required[key]
+                assert not cls.requirements_required[key], f"{key} requires requirements"
                 instance.requirements_impl[key] = None
+            elif isinstance(maybe_impl, list):
+                # list of classes
+                assert isinstance(cls.requirements[key], TaskList)
+                instance.requirements_impl[key] = [impl for impl in maybe_impl]
             else:
                 instance.requirements_impl[key] = maybe_impl
         return instance

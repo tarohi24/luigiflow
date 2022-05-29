@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
-from typing import Protocol, Any, Union, Optional
+from typing import Protocol, Any, Union, Optional, cast
 
 from luigiflow.serializer import DESERIALIZERS
-from luigiflow.task import MlflowTask, MlflowTaskProtocol
+from luigiflow.task import MlflowTask, MlflowTaskProtocol, TaskImplementationList, TaskList
 from luigiflow.types import TaskParameter
 
 
@@ -87,9 +87,9 @@ class TaskRepository:
             task_cls=task_cls,
         )
         # resolve requirements
-        requirements: dict[str, type[MlflowTaskProtocol]] = task_cls.requirements  # type: ignore
+        requirements: dict[str, Union[type[MlflowTaskProtocol], TaskList]] = task_cls.requirements  # type: ignore
         requirements_required: dict[str, bool] = task_cls.requirements_required  # type: ignore
-        requirements_impl: dict[str, Optional[MlflowTask]] = dict()
+        requirements_impl: dict[str, Union[MlflowTask, TaskImplementationList, None]] = dict()
         if len(requirements) == 0:
             assert "requires" not in task_params
         else:
@@ -100,6 +100,16 @@ class TaskRepository:
                 if maybe_task_param is None:
                     assert not requirements_required[key], f"{key} is required"
                     requirements_impl[key] = None
+                elif isinstance(maybe_task_param, list):
+                    assert isinstance(protocol, TaskList)
+                    impls: list[MlflowTask] = []
+                    for param in cast(list[dict], maybe_task_param):
+                        req = self.generate_task_tree(
+                            param,
+                            protocol=protocol.protocol.__name__,
+                        )
+                        impls.append(req)
+                    requirements_impl[key] = TaskImplementationList(impls)
                 else:
                     assert isinstance(maybe_task_param, dict)
                     req_task_cls: MlflowTask = self.generate_task_tree(
