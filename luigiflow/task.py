@@ -147,8 +147,8 @@ class TaskImplementationList(Generic[_T], luigi.Task, metaclass=TaskImplementati
         return self.implementations
 
     def run(self):
-        for task in self.implementations:
-            task.run()
+        # Do nothing (`self.requires()` will execute incomplete tasks)
+        pass
 
     def output(self):
         raise NotImplementedError

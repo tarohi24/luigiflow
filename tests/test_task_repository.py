@@ -385,17 +385,10 @@ def test_list_requirements(artifacts_server, tmpdir):
             experiment_name="hi",
             protocols=[AProtocol],
             requirements=dict(),
-            artifact_filenames={
-                "data": "data.json",
-            },
         )
 
         def _run(self) -> NoReturn:
-            self.save_to_mlflow(
-                artifacts_and_save_funcs={
-                    "data": (dict(), save_json),
-                }
-            )
+            self.save_to_mlflow()
 
     class TaskC(MlflowTask):
         value: int = luigi.IntParameter()
@@ -403,17 +396,10 @@ def test_list_requirements(artifacts_server, tmpdir):
             experiment_name="hi",
             protocols=[AnotherProtocol],
             requirements=dict(),
-            artifact_filenames={
-                "data": "data.json",
-            },
         )
 
         def _run(self) -> NoReturn:
-            self.save_to_mlflow(
-                artifacts_and_save_funcs={
-                    "data": (dict(), save_json),
-                }
-            )
+            self.save_to_mlflow()
 
     class TaskB(MlflowTask):
         text: str = luigi.Parameter()
@@ -424,10 +410,10 @@ def test_list_requirements(artifacts_server, tmpdir):
                 "a": TaskList(AProtocol),
                 "c": AnotherProtocol,
             },
-            artifact_filenames={
-                "data": "data.json",
-            },
         )
+
+        def _run(self) -> NoReturn:
+            self.save_to_mlflow()
 
     config = """
     {
