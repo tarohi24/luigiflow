@@ -125,6 +125,10 @@ V = TypeVar("V", bound=type[MlflowTaskProtocol])
 class TaskList(Generic[V]):
     protocol: type[V]
 
+    # this method is just to give hints
+    def apply(self, fn: Callable[[...], K], **kwargs) -> list[K]:
+        raise NotImplementedError
+
 
 RequirementProtocol = Union[type[MlflowTaskProtocol], OptionalTask, TaskList]
 
@@ -156,10 +160,10 @@ class TaskImplementationList(Generic[_T], luigi.Task, metaclass=TaskImplementati
     def complete(self):
         return all(impl.complete() for impl in self.implementations)
 
-    # I couldn't find a way to add type-hinting for this method,
-    # since the name of methods (and their types) cannot be determined until runtime,
-    def apply(self, fn: str, **kwargs) -> list[Any]:
-        callables: list[Callable] = [getattr(impl, fn) for impl in self.implementations]
+    def apply(self, fn: Callable[[...], K], **kwargs) -> list[K]:
+        # Note that `fn` itself is not applied. Only its name is used.
+        # So you can pass methods of protocols
+        callables: list[Callable] = [getattr(impl, fn.__name__) for impl in self.implementations]
         assert all(callable(maybe_callable) for maybe_callable in callables)
         return [cb(**kwargs) for cb in callables]
 

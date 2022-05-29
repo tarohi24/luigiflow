@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Protocol, NoReturn, runtime_checkable, TypedDict, Optional
+from typing import Protocol, NoReturn, runtime_checkable, TypedDict, Optional, List
 
 import luigi
 import pytest
@@ -379,16 +379,24 @@ def test_allow_null_requirements(artifacts_server, tmpdir, maybe_task, config, i
 
 
 def test_list_requirements(artifacts_server, tmpdir):
+
+    class GetTextProtocol(MlflowTaskProtocol, Protocol):
+        def load_text(self) -> str:
+            raise NotImplementedError
+
     class TaskA(MlflowTask):
         value: int = luigi.IntParameter()
         config = TaskConfig(
             experiment_name="hi",
-            protocols=[AProtocol],
+            protocols=[GetTextProtocol],
             requirements=dict(),
         )
 
         def _run(self) -> NoReturn:
             self.save_to_mlflow()
+
+        def load_text(self) -> str:
+            return str(self.value)
 
     class TaskC(MlflowTask):
         value: int = luigi.IntParameter()
@@ -401,19 +409,31 @@ def test_list_requirements(artifacts_server, tmpdir):
         def _run(self) -> NoReturn:
             self.save_to_mlflow()
 
-    class TaskB(MlflowTask):
+    class TaskBRequirements(TypedDict):
+        a: TaskList
+        c: AnotherProtocol
+
+    class TaskB(MlflowTask[TaskBRequirements]):
         text: str = luigi.Parameter()
         config = TaskConfig(
             experiment_name="hi",
             protocols=[AnotherProtocol],
             requirements={
-                "a": TaskList(AProtocol),
+                "a": TaskList(GetTextProtocol),
                 "c": AnotherProtocol,
             },
+            artifact_filenames={
+                "data": "data.json",
+            }
         )
 
         def _run(self) -> NoReturn:
-            self.save_to_mlflow()
+            out: list[str] = self.requires()["a"].apply(GetTextProtocol.load_text)
+            self.save_to_mlflow(
+                artifacts_and_save_funcs={
+                    "data": ({"values": out}, save_json),
+                }
+            )
 
     config = """
     {
@@ -467,3 +487,6 @@ def test_list_requirements(artifacts_server, tmpdir):
         dry_run=False,
     )
     assert task.complete()
+    with open(task.output()["data"].path) as fin:
+        output = json.load(fin)
+    assert output == {"values": ["1", "2"]}
