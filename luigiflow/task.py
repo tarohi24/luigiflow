@@ -137,9 +137,15 @@ _T = TypeVar("_T", bound=MlflowTaskProtocol)
 
 
 class TaskImplementationListMeta(Register, Generic[_T]):
+    def __new__(mcs, classname: str, bases: tuple[type, ...], namespace: dict[str, Any]):
+        cls = super(TaskImplementationListMeta, mcs).__new__(mcs, classname, bases, namespace)
+        cls.disable_instance_cache()
+        return cls
+
     def __call__(cls, implementations: list[_T], *args, **kwargs):
         instance = super(TaskImplementationListMeta, cls).__call__(*args, **kwargs)
         instance.implementations = implementations
+        instance.task_id = instance.task_id + "-".join([req.task_id for req in implementations])
         return instance
 
 
@@ -168,7 +174,7 @@ class TaskImplementationList(Generic[_T], luigi.Task, metaclass=TaskImplementati
         return [cb(**kwargs) for cb in callables]
 
     def __hash__(self) -> int:
-        return hash(impl for impl in self.implementations)
+        return hash(tuple(hash(impl) for impl in self.implementations))
 
     def __eq__(self, other) -> bool:
         if not isinstance(other, TaskImplementationList):
@@ -181,6 +187,9 @@ class TaskImplementationList(Generic[_T], luigi.Task, metaclass=TaskImplementati
             if a != b:
                 return False
         return True
+
+    def __len__(self) -> int:
+        return len(self.implementations)
 
 
 class TaskConfig(BaseModel):
@@ -248,6 +257,8 @@ class MlflowTaskMeta(Register, Generic[T], type(Protocol)):
                 instance.requirements_impl[key] = [impl for impl in maybe_impl]
             else:
                 instance.requirements_impl[key] = maybe_impl
+        # renew task_id to distinguish tasks with the same params but different requirements
+        instance.task_id += "-".join([req.task_id for req in instance.requirements_impl.values() if req is not None])
         return instance
 
 

@@ -379,7 +379,6 @@ def test_allow_null_requirements(artifacts_server, tmpdir, maybe_task, config, i
 
 
 def test_list_requirements(artifacts_server, tmpdir):
-
     class GetTextProtocol(MlflowTaskProtocol, Protocol):
         def load_text(self) -> str:
             raise NotImplementedError
@@ -411,6 +410,7 @@ def test_list_requirements(artifacts_server, tmpdir):
 
     class TaskBRequirements(TypedDict):
         a: TaskList
+        a_a: TaskList
         c: AnotherProtocol
 
     class TaskB(MlflowTask[TaskBRequirements]):
@@ -420,18 +420,20 @@ def test_list_requirements(artifacts_server, tmpdir):
             protocols=[AnotherProtocol],
             requirements={
                 "a": TaskList(GetTextProtocol),
+                "a_a": TaskList(GetTextProtocol),  # test if "a" is not overrode
                 "c": AnotherProtocol,
             },
             artifact_filenames={
                 "data": "data.json",
-            }
+            },
         )
 
         def _run(self) -> NoReturn:
             out: list[str] = self.requires()["a"].apply(GetTextProtocol.load_text)
+            aa_out = self.requires()["a_a"].apply(GetTextProtocol.load_text)
             self.save_to_mlflow(
                 artifacts_and_save_funcs={
-                    "data": ({"values": out}, save_json),
+                    "data": ([{"values": out}, {"values_aa": aa_out}], save_json),
                 }
             )
 
@@ -450,6 +452,14 @@ def test_list_requirements(artifacts_server, tmpdir):
                     "cls": "TaskA",
                     "params": {
                         "value": 2,
+                    },
+                },
+            ],
+            a_a: [
+                {
+                    "cls": "TaskA",
+                    "params": {
+                        "value": 3,
                     },
                 },
             ],
@@ -481,12 +491,14 @@ def test_list_requirements(artifacts_server, tmpdir):
             task_classes=[TaskA, TaskB, TaskC],
         ),
     )
-    task, _ = runner.run(
+    task, res = runner.run(
         protocol_name="AnotherProtocol",
         config_jsonnet_path=config_path,
         dry_run=False,
     )
+    assert len(task.requires()["a"]) == 2
+    assert len(task.requires()["a_a"]) == 1
     assert task.complete()
     with open(task.output()["data"].path) as fin:
         output = json.load(fin)
-    assert output == {"values": ["1", "2"]}
+    assert output == [{"values": ["1", "2"]}, {"values_aa": ["3"]}]
