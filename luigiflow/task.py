@@ -22,7 +22,7 @@ from luigi import LocalTarget
 from luigi.task_register import Register
 from mlflow.entities import Experiment, Run, RunInfo
 from mlflow.protos.service_pb2 import ACTIVE_ONLY, RunStatus
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, Extra
 from tqdm.auto import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
@@ -192,8 +192,7 @@ class TaskImplementationList(Generic[_T], luigi.Task, metaclass=TaskImplementati
         return len(self.implementations)
 
 
-class TaskConfig(BaseModel):
-    experiment_name: str
+class TaskConfig(BaseModel, extra=Extra.forbid):
     protocols: list[type[MlflowTaskProtocol]]
     requirements: dict[str, RequirementProtocol] = Field(default_factory=dict)
     artifact_filenames: dict[str, str] = Field(default_factory=dict)
@@ -208,9 +207,7 @@ class MlflowTaskMeta(Register, Generic[T], type(Protocol)):
             config: TaskConfig = namespace["config"]
         except KeyError:
             raise ValueError(f"{classname} doesn't have a Config.")
-        if (config.experiment_name == "") and classname != "MlflowTask":  # empty value only allowed for the base class
-            raise ValueError(f"Experiment name not set for {classname}")
-        cls.experiment_name = config.experiment_name
+        cls.experiment_name = cls.__name__
         cls.protocols = config.protocols
         cls.requirements = dict()
         cls.requirements_required = dict()
@@ -268,7 +265,6 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[T], metaclass=MlflowTaskMeta[T])
     """
 
     config = TaskConfig(
-        experiment_name="",  # dummy
         protocols=[],
         requirements=dict(),
     )

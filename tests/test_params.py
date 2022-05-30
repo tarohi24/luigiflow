@@ -16,7 +16,6 @@ class TaskProtocol(MlflowTaskProtocol):
 class TaskA(MlflowTask):
     date_param: datetime.date = luigi.DateParameter(default=datetime.date(2021, 10, 11))
     config = TaskConfig(
-        experiment_name="hi",
         protocols=[
             TaskProtocol,
         ],
@@ -31,7 +30,6 @@ class BRequirements(TypedDict):
 class TaskB(MlflowTask[BRequirements]):
     date_param: datetime.date = luigi.DateParameter()
     config = TaskConfig(
-        experiment_name="hi",
         protocols=[
             TaskProtocol,
         ],

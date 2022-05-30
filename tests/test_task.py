@@ -33,7 +33,6 @@ def test_to_mlflow_tags(monkeypatch):
         param_large_value: float = luigi.FloatParameter(default=2e11)
         optional_param: Optional[str] = luigi.Parameter(default=None)
         config = TaskConfig(
-            experiment_name="task",
             protocols=[
                 DummyProtocol,
             ],
@@ -80,7 +79,6 @@ def test_to_mlflow_tags(monkeypatch):
     class AnotherTask(MlflowTask):
         strange_param = luigi.Parameter(default=Task)  # invalid value
         config = TaskConfig(
-            experiment_name="dummy",
             protocols=[
                 DummyProtocol,
             ],
@@ -117,7 +115,6 @@ def test_to_tags_w_parents(monkeypatch):
     class TaskA(MlflowTask[dict]):
         param: str = luigi.Parameter(default="hi")
         config = TaskConfig(
-            experiment_name="dummy",
             protocols=[
                 ITaskA,
             ],
@@ -130,7 +127,6 @@ def test_to_tags_w_parents(monkeypatch):
     class TaskB(MlflowTask[dict]):
         value: int = luigi.IntParameter(default=1)
         config = TaskConfig(
-            experiment_name="dummy",
             protocols=[
                 ITaskB,
             ],
@@ -145,7 +141,6 @@ def test_to_tags_w_parents(monkeypatch):
     class TaskC(MlflowTask[dict]):
         int_param: int = luigi.IntParameter(default=10)
         config = TaskConfig(
-            experiment_name="dummy",
             protocols=[
                 ITaskC,
             ],
@@ -158,7 +153,6 @@ def test_to_tags_w_parents(monkeypatch):
     class MainTask(MlflowTask[dict]):
         bool_param: bool = luigi.BoolParameter(default=False)
         config = TaskConfig(
-            experiment_name="dummy",
             protocols=[
                 IMainTask,
             ],
@@ -214,7 +208,6 @@ def test_to_tags_w_parents(monkeypatch):
     class MainTaskWoRecursiveTags(MlflowTask):
         bool_param: bool = luigi.BoolParameter(default=True)
         config = TaskConfig(
-            experiment_name="dummy",
             protocols=[
                 IMainTask,
             ],
@@ -268,7 +261,6 @@ def test_save_artifacts(artifacts_server):
 
     class Task(MlflowTask):
         config = TaskConfig(
-            experiment_name="dummy",
             artifact_filenames={
                 "csv": "df.csv",
                 "pickle": "df.pickle",
@@ -316,7 +308,6 @@ def test_save_artifacts(artifacts_server):
 def test_save_artifacts_but_files_are_mismatched(artifacts_server):
     class InvalidTask(MlflowTask):
         config = TaskConfig(
-            experiment_name="dummy",
             protocols=[
                 DummyProtocol,
             ],
@@ -339,3 +330,18 @@ def test_save_artifacts_but_files_are_mismatched(artifacts_server):
     assert task.output() is None
     with pytest.raises(TryingToSaveUndefinedArtifact):
         task.run()
+
+
+def test_experiment_name(artifacts_server):
+    with pytest.raises(ValueError):
+        class InvalidTask(MlflowTask):
+            config = TaskConfig(
+                experiment_name="hi",  # noqa
+                protocols=[DummyProtocol],
+            )
+    class ValidTask(MlflowTask):
+        config = TaskConfig(
+            protocols=[DummyProtocol],
+        )
+
+    assert ValidTask.get_experiment_name() == "ValidTask"

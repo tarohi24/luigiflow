@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Protocol, NoReturn, runtime_checkable, TypedDict, Optional, List
+from typing import Protocol, NoReturn, runtime_checkable, TypedDict, Optional
 
 import luigi
 import pytest
@@ -30,7 +30,6 @@ class AnotherProtocol(MlflowTaskProtocol, Protocol):
 
 class DoNothingImpl(MlflowTask):
     config = TaskConfig(
-        experiment_name="do_nothing",
         protocols=[
             AProtocol,
         ],
@@ -47,7 +46,7 @@ class DoNothingImpl(MlflowTask):
 class NewTask(MlflowTask):
     param: str = luigi.Parameter()
     config = TaskConfig(
-        experiment_name="x",
+
         protocols=[
             AnotherProtocol,
         ],
@@ -79,7 +78,6 @@ def test_unknown_protocol():
 
     class UnknownTask(MlflowTask):
         config = TaskConfig(
-            experiment_name="hi",
             protocols=[
                 UnknownProtocol,
             ],
@@ -88,7 +86,6 @@ def test_unknown_protocol():
 
     class TaskHavingUnknownProtocol(MlflowTask):
         config = TaskConfig(
-            experiment_name="hi",
             protocols=[
                 AProtocol,
             ],
@@ -122,7 +119,7 @@ def test_recursively_nested_task(artifacts_server):
     class TaskA(MlflowTask):
         param: str = luigi.Parameter()
         config = TaskConfig(
-            experiment_name="hi",
+
             protocols=[
                 AProtocol,
             ],
@@ -134,7 +131,7 @@ def test_recursively_nested_task(artifacts_server):
 
     class TaskB(MlflowTask):
         config = TaskConfig(
-            experiment_name="hi",
+
             protocols=[
                 AProtocol,
             ],
@@ -146,7 +143,6 @@ def test_recursively_nested_task(artifacts_server):
 
     class TaskC(MlflowTask):
         config = TaskConfig(
-            experiment_name="hi",
             protocols=[
                 AProtocol,
             ],
@@ -201,7 +197,6 @@ def test_too_many_tags(artifacts_server, tmpdir):
     class DoSomething(MlflowTask):
         value: str = luigi.IntParameter(default=1)
         config = TaskConfig(
-            experiment_name="hi",
             protocols=[
                 AProtocol,
             ],
@@ -309,7 +304,6 @@ def test_allow_null_requirements(artifacts_server, tmpdir, maybe_task, config, i
 
     class TaskA(MlflowTask):
         config = TaskConfig(
-            experiment_name="hi",
             protocols=[AProtocol],
             requirements=dict(),
             artifact_filenames={
@@ -326,7 +320,6 @@ def test_allow_null_requirements(artifacts_server, tmpdir, maybe_task, config, i
 
     class TaskB(MlflowTask[Requirements]):
         config = TaskConfig(
-            experiment_name="hi",
             protocols=[AnotherProtocol],
             requirements={  # type: ignore
                 "maybe_task": maybe_task,
@@ -386,7 +379,7 @@ def test_list_requirements(artifacts_server, tmpdir):
     class TaskA(MlflowTask):
         value: int = luigi.IntParameter()
         config = TaskConfig(
-            experiment_name="hi",
+
             protocols=[GetTextProtocol],
             requirements=dict(),
         )
@@ -400,7 +393,6 @@ def test_list_requirements(artifacts_server, tmpdir):
     class TaskC(MlflowTask):
         value: int = luigi.IntParameter()
         config = TaskConfig(
-            experiment_name="hi",
             protocols=[AnotherProtocol],
             requirements=dict(),
         )
@@ -416,7 +408,6 @@ def test_list_requirements(artifacts_server, tmpdir):
     class TaskB(MlflowTask[TaskBRequirements]):
         text: str = luigi.Parameter()
         config = TaskConfig(
-            experiment_name="hi",
             protocols=[AnotherProtocol],
             requirements={
                 "a": TaskList(GetTextProtocol),

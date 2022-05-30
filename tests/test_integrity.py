@@ -33,7 +33,6 @@ class TaskA(MlflowTask):
     value: float = luigi.FloatParameter()
 
     config = TaskConfig(
-        experiment_name="task",
         protocols=[
             SaveCsv,
         ],
@@ -67,7 +66,6 @@ class TaskB(MlflowTask[Requirements]):
     int_value: int = luigi.IntParameter()
     message: str = luigi.Parameter()
     config = TaskConfig(
-        experiment_name="task",
         protocols=[SaveCsv, SaveJson],
         requirements={
             "a": SaveCsv,
