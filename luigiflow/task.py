@@ -130,7 +130,7 @@ class TaskList(Generic[V]):
     def apply(self, fn: Callable[[...], K], **kwargs) -> list[K]:
         raise NotImplementedError
 
-    def __iter__(self) -> Iterator[MlflowTaskProtocol]:
+    def __iter__(self) -> Iterator[V]:
         ...  # Don't raise `NotImplementedError` because some pydantic methods may catch that exception.
 
 
@@ -195,7 +195,7 @@ class TaskImplementationList(Generic[_T], luigi.Task, metaclass=TaskImplementati
     def __len__(self) -> int:
         return len(self.implementations)
 
-    def __iter__(self) -> Iterator[MlflowTaskProtocol]:
+    def __iter__(self) -> Iterator[_T]:
         return iter(self.implementations)
 
 
