@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Protocol, NoReturn, runtime_checkable, TypedDict, Optional
+from typing import Protocol, NoReturn, runtime_checkable, TypedDict, Optional, cast
 
 import luigi
 import pytest
@@ -46,7 +46,6 @@ class DoNothingImpl(MlflowTask):
 class NewTask(MlflowTask):
     param: str = luigi.Parameter()
     config = TaskConfig(
-
         protocols=[
             AnotherProtocol,
         ],
@@ -119,7 +118,6 @@ def test_recursively_nested_task(artifacts_server):
     class TaskA(MlflowTask):
         param: str = luigi.Parameter()
         config = TaskConfig(
-
             protocols=[
                 AProtocol,
             ],
@@ -131,7 +129,6 @@ def test_recursively_nested_task(artifacts_server):
 
     class TaskB(MlflowTask):
         config = TaskConfig(
-
             protocols=[
                 AProtocol,
             ],
@@ -379,7 +376,6 @@ def test_list_requirements(artifacts_server, tmpdir):
     class TaskA(MlflowTask):
         value: int = luigi.IntParameter()
         config = TaskConfig(
-
             protocols=[GetTextProtocol],
             requirements=dict(),
         )
@@ -493,3 +489,5 @@ def test_list_requirements(artifacts_server, tmpdir):
     with open(task.output()["data"].path) as fin:
         output = json.load(fin)
     assert output == [{"values": ["1", "2"]}, {"values_aa": ["3"]}]
+    # check if `__iter__` works
+    assert len(list(cast(TaskB, task).requires()["a"])) == 2

@@ -1,6 +1,7 @@
 import logging
 import os
 import tempfile
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import (
@@ -129,6 +130,9 @@ class TaskList(Generic[V]):
     def apply(self, fn: Callable[[...], K], **kwargs) -> list[K]:
         raise NotImplementedError
 
+    def __iter__(self) -> Iterator[MlflowTaskProtocol]:
+        ...  # Don't raise `NotImplementedError` because some pydantic methods may catch that exception.
+
 
 RequirementProtocol = Union[type[MlflowTaskProtocol], OptionalTask, TaskList]
 
@@ -190,6 +194,9 @@ class TaskImplementationList(Generic[_T], luigi.Task, metaclass=TaskImplementati
 
     def __len__(self) -> int:
         return len(self.implementations)
+
+    def __iter__(self) -> Iterator[MlflowTaskProtocol]:
+        return iter(self.implementations)
 
 
 class TaskConfig(BaseModel, extra=Extra.forbid):
