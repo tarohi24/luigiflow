@@ -23,7 +23,7 @@ from luigi import LocalTarget
 from luigi.task_register import Register
 from mlflow.entities import Experiment, Run, RunInfo
 from mlflow.protos.service_pb2 import ACTIVE_ONLY, RunStatus
-from pydantic import BaseModel, Field, validator, Extra
+from pydantic import BaseModel, Field, Extra
 from tqdm.auto import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
@@ -110,13 +110,12 @@ class MlflowTaskProtocol(Protocol[T]):
         ...
 
 
-class OptionalTask(BaseModel):
+@dataclass
+class OptionalTask:
     base_cls: type[Protocol]
 
-    @validator("base_cls")
-    def check_is_base_cls_a_task_protocol(cls, v):
-        assert issubclass(v, MlflowTaskProtocol)
-        return v
+    def __post_init__(self):
+        assert issubclass(self.base_cls, MlflowTaskProtocol)
 
 
 V = TypeVar("V", bound=type[MlflowTaskProtocol])
@@ -440,6 +439,15 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[T], metaclass=MlflowTaskMeta[T])
             for task_name, t in parent_tasks.items():
                 t_tags_w_prefix = {f"{task_name}.{key}": val for key, val in t.to_mlflow_tags_w_parent_tags().items()}
                 tags = dict(**tags, **t_tags_w_prefix)
+            parent_list_tasks: dict[str, TaskImplementationList] = {
+                key: val for key, val in task.requires().items() if isinstance(val, TaskImplementationList)
+            }
+            for task_name, task_list in parent_list_tasks.items():
+                for i, task in enumerate(task_list):
+                    t_tags_w_prefix = {
+                        f"{task_name}.{i}.{key}": val for key, val in task.to_mlflow_tags_w_parent_tags().items()
+                    }
+                    tags = dict(**tags, **t_tags_w_prefix)
             return tags
 
         return to_tags(self)

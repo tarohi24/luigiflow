@@ -1,6 +1,7 @@
 import datetime
+import json
 import pickle
-from typing import NoReturn, Optional
+from typing import NoReturn, Optional, cast
 from unittest import TestCase
 
 import luigi
@@ -8,11 +9,15 @@ import pandas as pd
 import pytest
 from luigi import LocalTarget
 
+from luigiflow.config import RunnerConfig
+from luigiflow.runner import Runner
 from luigiflow.task import (
     MlflowTask,
     TaskConfig,
     TryingToSaveUndefinedArtifact,
     MlflowTaskProtocol,
+    TaskList,
+    OptionalTask,
 )
 from luigiflow.task_repository import TaskRepository
 from luigiflow.utils.savers import save_dataframe, save_pickle, save_json
@@ -27,9 +32,7 @@ def test_to_mlflow_tags(monkeypatch):
         param_int: int = luigi.IntParameter(default=10)
         param_str: str = luigi.Parameter(default="hi")
         param_bool: str = luigi.BoolParameter(default=True)
-        param_date: datetime.date = luigi.DateParameter(
-            default=datetime.date(2021, 1, 2)
-        )
+        param_date: datetime.date = luigi.DateParameter(default=datetime.date(2021, 1, 2))
         param_large_value: float = luigi.FloatParameter(default=2e11)
         optional_param: Optional[str] = luigi.Parameter(default=None)
         config = TaskConfig(
@@ -334,14 +337,90 @@ def test_save_artifacts_but_files_are_mismatched(artifacts_server):
 
 def test_experiment_name(artifacts_server):
     with pytest.raises(ValueError):
+
         class InvalidTask(MlflowTask):
             config = TaskConfig(
                 experiment_name="hi",  # noqa
                 protocols=[DummyProtocol],
             )
+
     class ValidTask(MlflowTask):
         config = TaskConfig(
             protocols=[DummyProtocol],
         )
 
     assert ValidTask.get_experiment_name() == "ValidTask"
+
+
+def test_to_mlflow_tags_with_non_mlflow_task_requirements(tmpdir, artifacts_server):
+    class TaskA(MlflowTask):
+        value: int = luigi.IntParameter()
+        config = TaskConfig(
+            protocols=[DummyProtocol],
+        )
+
+        def _run(self) -> NoReturn:
+            self.save_to_mlflow()
+
+    class TaskB(MlflowTask):
+        config = TaskConfig(
+            protocols=[DummyProtocol],
+            requirements={
+                "a": TaskList(DummyProtocol),
+                "b": OptionalTask(DummyProtocol),
+            },
+        )
+
+        def _run(self) -> NoReturn:
+            self.save_to_mlflow()
+
+    config = {
+        "cls": "TaskB",
+        "requires": {
+            "a": [
+                {
+                    "cls": "TaskA",
+                    "params": {
+                        "value": 1,
+                    },
+                },
+                {
+                    "cls": "TaskA",
+                    "params": {
+                        "value": 2,
+                    },
+                },
+            ],
+            "b": None,
+        },
+    }
+    d = tmpdir.join("d")
+    d.mkdir()
+    config_path = d.join("config.json")
+    with open(config_path, "w") as fout:
+        json.dump(config, fout)
+    runner = Runner(
+        config=RunnerConfig(
+            mlflow_tracking_uri=artifacts_server.url,
+            use_local_scheduler=True,
+            create_experiment_if_not_existing=True,
+        ),
+        experiment_repository=TaskRepository(
+            task_classes=[TaskA, TaskB],
+        ),
+    )
+    task, _ = runner.run(
+        protocol_name="DummyProtocol",
+        config_jsonnet_path=config_path,
+        dry_run=True,
+    )
+    actual_tags = cast(MlflowTask, task).to_mlflow_tags_w_parent_tags()
+    expected_tags = {
+        "name": "TaskB",
+        "a.0.name": "TaskA",
+        "a.0.value": 1,
+        "a.1.name": "TaskA",
+        "a.1.value": 2,
+        # "b" should not appear
+    }
+    assert actual_tags == expected_tags
