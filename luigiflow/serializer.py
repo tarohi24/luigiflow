@@ -1,6 +1,6 @@
 import datetime
 from dataclasses import dataclass
-from typing import Any, Callable, TypeVar, Union, cast
+from typing import Any, Callable, TypeVar, Union, cast, Optional
 
 MlflowTagValue = Union[str, int, float]
 T = TypeVar("T")
@@ -14,6 +14,8 @@ class MlflowTagSerializer:
     serializers: list[tuple[type[T], Callable[[T], MlflowTagValue]]]
 
     def serialize(self, val: Any) -> MlflowTagValue:
+        if val is None:
+            return "null"
         val_type: type = type(val)
         for typ, fn in self.serializers:
             if isinstance(val, typ):
@@ -36,9 +38,21 @@ default_serializer: MlflowTagSerializer = MlflowTagSerializer(
 )
 
 
+def get_optional_serializer(serializer: Callable[[str], T]) -> Callable[[str], Optional[T]]:
+    def fn(s: str) -> Optional[T]:
+        if s == "null":
+            return None
+        elif s == "None":
+            return None
+        else:
+            return serializer(s)
+
+    return fn
+
+
 DESERIALIZERS: dict[str, Callable[[str], Any]] = {
-    "Parameter": (lambda s: s),
-    "IntParameter": (lambda s: int(s)),
+    "Parameter": str,
+    "IntParameter": int,
     "BoolParameter": (
         lambda s: {
             "True": True,
@@ -49,6 +63,10 @@ DESERIALIZERS: dict[str, Callable[[str], Any]] = {
             "false": False,
         }[s]
     ),
-    "FloatParameter": (lambda s: float(s)),
-    "DateParameter": (lambda s: datetime.date.fromisoformat(s)),
+    "FloatParameter": float,
+    "DateParameter": datetime.date.fromisoformat,
+    "OptionalIntParameter": get_optional_serializer(int),
+    "OptionalFloatParameter": get_optional_serializer(float),
+    "OptionalStrParameter": get_optional_serializer(str),
+    "OptionalDateParameter": get_optional_serializer(datetime.date.fromisoformat),
 }

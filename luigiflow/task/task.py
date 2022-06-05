@@ -160,9 +160,9 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[T], metaclass=MlflowTaskMeta[T])
         """
         serializer = self.get_tag_serializer()
         base = {
-            name: serializer.serialize(val)
+            name: serializer.serialize(getattr(self, name))
             for name in self.get_param_names()
-            if ((val := getattr(self, name)) is not None and name not in self.tags_to_exclude)
+            if name not in self.tags_to_exclude
         }
         base["name"] = str(self.__class__.__name__)
         return base

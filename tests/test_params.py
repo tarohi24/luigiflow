@@ -1,9 +1,15 @@
 import datetime
-from typing import TypedDict, cast
+from typing import TypedDict, cast, Optional
 
 import luigi
 import pytest
 
+from luigiflow.custom_params import (
+    OptionalIntParameter,
+    OptionalStrParameter,
+    OptionalDateParameter,
+    OptionalFloatParameter,
+)
 from luigiflow.task import MlflowTask, TaskConfig, MlflowTaskProtocol
 from luigiflow.task_repository import TaskRepository, UnknownParameter
 from luigiflow.types import TaskParameter
@@ -81,3 +87,60 @@ def test_inconsistent_param_name():
             task_params={"cls": "TaskA", "params": {"unknown": "hi"}},
             protocol=TaskProtocol,
         )
+
+
+def test_optional_param():
+    class Task(MlflowTask):
+        maybe_value: Optional[int] = OptionalIntParameter()
+        maybe_float: Optional[float] = OptionalFloatParameter()
+        maybe_str: Optional[str] = OptionalStrParameter()
+        maybe_date: Optional[datetime.date] = OptionalDateParameter()
+        maybe_value_default_none: Optional[int] = OptionalIntParameter(default=None)
+        config = TaskConfig(
+            protocols=[TaskProtocol],
+        )
+
+    config = {
+        "cls": "Task",
+        "params": {
+            "maybe_value": None,
+            "maybe_float": None,
+            "maybe_str": None,
+            "maybe_date": None,
+        },
+    }
+    task: Task = TaskRepository([Task]).generate_task_tree(  # type: ignore
+        task_params=config,
+        protocol=TaskProtocol,
+    )
+    assert task.maybe_value is None
+    assert task.maybe_str is None
+    assert task.maybe_date is None
+    assert task.to_mlflow_tags() == {
+        "maybe_value": "null",
+        "maybe_float": "null",
+        "maybe_date": "null",
+        "maybe_str": "null",
+        "maybe_value_default_none": "null",
+        "name": "Task",
+    }
+
+    config = {
+        "cls": "Task",
+        "params": {
+            "maybe_value": 1,
+            "maybe_str": "hi",
+            "maybe_float": 0.1,
+            "maybe_date": "2020-01-01",
+            "maybe_value_default_none": 10,
+        },
+    }
+    task: Task = TaskRepository([Task]).generate_task_tree(  # type: ignore
+        task_params=config,
+        protocol=TaskProtocol,
+    )
+    assert task.maybe_value == 1
+    assert task.maybe_str == "hi"
+    assert task.maybe_float == 0.1
+    assert task.maybe_date == datetime.date(2020, 1, 1)
+    assert task.maybe_value_default_none == 10

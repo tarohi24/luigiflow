@@ -34,7 +34,6 @@ def test_to_mlflow_tags(monkeypatch):
         param_bool: str = luigi.BoolParameter(default=True)
         param_date: datetime.date = luigi.DateParameter(default=datetime.date(2021, 1, 2))
         param_large_value: float = luigi.FloatParameter(default=2e11)
-        optional_param: Optional[str] = luigi.Parameter(default=None)
         config = TaskConfig(
             protocols=[
                 DummyProtocol,
