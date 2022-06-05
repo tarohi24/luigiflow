@@ -1,201 +1,29 @@
 import logging
 import os
 import tempfile
-from collections.abc import Iterator
-from dataclasses import dataclass
 from pathlib import Path
-from typing import (
-    Callable,
-    NoReturn,
-    Optional,
-    TypeVar,
-    final,
-    Any,
-    Protocol,
-    runtime_checkable,
-    Generic,
-    Union,
-)
+from typing import Generic, Protocol, Any, final, NoReturn, Optional, Union, Callable, TypeVar
 
 import luigi
 import mlflow
 from luigi import LocalTarget
 from luigi.task_register import Register
-from mlflow.entities import Experiment, Run, RunInfo
-from mlflow.protos.service_pb2 import ACTIVE_ONLY, RunStatus
-from pydantic import BaseModel, Field, Extra
+from mlflow.entities import Run, Experiment, RunInfo
+from mlflow.protos.service_pb2 import RunStatus, ACTIVE_ONLY
+from pydantic import BaseModel, Extra, Field
 from tqdm.auto import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
-from luigiflow.serializer import MlflowTagSerializer, MlflowTagValue, default_serializer
+from luigiflow.serializer import MlflowTagSerializer, default_serializer, MlflowTagValue
+from luigiflow.task import MlflowTaskProtocol, RequirementProtocol, OptionalTask, TaskList, TaskImplementationList
 
-T = TypeVar("T", bound=dict)  # to denote the type of `task.requires()`
-K = TypeVar("K")  # for `save_artifacts`
+
+T = TypeVar("T", bound=MlflowTaskProtocol)
+K = TypeVar("K")
 
 
 class TryingToSaveUndefinedArtifact(Exception):
     ...
-
-
-@runtime_checkable
-class MlflowTaskProtocol(Protocol[T]):
-    """
-    You can use this protocol to implement task protocols.
-    Because a protocol class cannot inherit from non-protocol classes,
-    you can use this instead of `MlflowTask`.
-
-    `T` is a `TypedDict` to describe `requires()`.
-    """
-
-    @classmethod
-    def get_protocols(cls) -> list[Protocol]:
-        ...
-
-    @classmethod
-    def get_tags_to_exclude(cls) -> set[str]:
-        ...
-
-    @classmethod
-    def get_experiment_name(cls) -> str:
-        ...
-
-    @classmethod
-    def get_artifact_filenames(cls) -> dict[str, str]:
-        ...
-
-    @classmethod
-    def get_tag_serializer(cls) -> MlflowTagSerializer:
-        ...
-
-    # just to note types
-    def input(self) -> dict[str, dict[str, LocalTarget]]:
-        ...
-
-    def requires(self) -> T:
-        ...
-
-    def to_mlflow_tags(self) -> dict[str, MlflowTagValue]:
-        ...
-
-    def _run(self) -> NoReturn:
-        ...
-
-    def run(self):
-        ...
-
-    def search_for_mlflow_run(self, view_type: RunStatus = ACTIVE_ONLY) -> Optional[Run]:
-        ...
-
-    def complete(self):
-        ...
-
-    def output(self) -> Optional[dict[str, LocalTarget]]:
-        ...
-
-    def to_mlflow_tags_w_parent_tags(self) -> dict[str, MlflowTagValue]:
-        ...
-
-    def save_to_mlflow(
-        self,
-        artifacts_and_save_funcs: dict[str, Union[Callable[[str], None], tuple[K, Callable[[K, str], None]]]] = None,
-        metrics: dict[str, float] = None,
-        inherit_parent_tags: bool = True,
-    ):
-        ...
-
-    def logger(self) -> logging.Logger:
-        ...
-
-    def enable_tqdm(self) -> NoReturn:
-        ...
-
-
-@dataclass
-class OptionalTask:
-    base_cls: type[Protocol]
-
-    def __post_init__(self):
-        assert issubclass(self.base_cls, MlflowTaskProtocol)
-
-
-V = TypeVar("V", bound=type[MlflowTaskProtocol])
-
-
-@dataclass
-class TaskList(Generic[V]):
-    protocol: type[V]
-
-    # this method is just to give hints
-    def apply(self, fn: Callable[[...], K], **kwargs) -> list[K]:
-        raise NotImplementedError
-
-    def __iter__(self) -> Iterator[V]:
-        ...  # Don't raise `NotImplementedError` because some pydantic methods may catch that exception.
-
-
-RequirementProtocol = Union[type[MlflowTaskProtocol], OptionalTask, TaskList]
-
-
-_T = TypeVar("_T", bound=MlflowTaskProtocol)
-
-
-class TaskImplementationListMeta(Register, Generic[_T]):
-    def __new__(mcs, classname: str, bases: tuple[type, ...], namespace: dict[str, Any]):
-        cls = super(TaskImplementationListMeta, mcs).__new__(mcs, classname, bases, namespace)
-        cls.disable_instance_cache()
-        return cls
-
-    def __call__(cls, implementations: list[_T], *args, **kwargs):
-        instance = super(TaskImplementationListMeta, cls).__call__(*args, **kwargs)
-        instance.implementations = implementations
-        instance.task_id = instance.task_id + "-".join([req.task_id for req in implementations])
-        return instance
-
-
-@dataclass(init=False)
-class TaskImplementationList(Generic[_T], luigi.Task, metaclass=TaskImplementationListMeta):
-    implementations: list[_T]
-
-    def requires(self) -> list[_T]:
-        return self.implementations
-
-    def run(self):
-        # Do nothing (`self.requires()` will execute incomplete tasks)
-        pass
-
-    def output(self):
-        raise NotImplementedError
-
-    def complete(self):
-        return all(impl.complete() for impl in self.implementations)
-
-    def apply(self, fn: Callable[[...], K], **kwargs) -> list[K]:
-        # Note that `fn` itself is not applied. Only its name is used.
-        # So you can pass methods of protocols
-        callables: list[Callable] = [getattr(impl, fn.__name__) for impl in self.implementations]
-        assert all(callable(maybe_callable) for maybe_callable in callables)
-        return [cb(**kwargs) for cb in callables]
-
-    def __hash__(self) -> int:
-        return hash(tuple(hash(impl) for impl in self.implementations))
-
-    def __eq__(self, other) -> bool:
-        if not isinstance(other, TaskImplementationList):
-            return False
-        other_impls = other.implementations
-        my_impls = self.implementations
-        if len(other_impls) != len(my_impls):
-            return False
-        for a, b in zip(other_impls, my_impls):
-            if a != b:
-                return False
-        return True
-
-    def __len__(self) -> int:
-        return len(self.implementations)
-
-    def __iter__(self) -> Iterator[_T]:
-        return iter(self.implementations)
 
 
 class TaskConfig(BaseModel, extra=Extra.forbid):
@@ -493,7 +321,7 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[T], metaclass=MlflowTaskMeta[T])
             tags: list[tuple[str, Any]] = list([(key, val) for key, val in tags_dict.items()])
             n_tags = len(tags)
             start_pos = list(range(0, n_tags, 50))
-            end_pos = start_pos[1: ] + [n_tags]
+            end_pos = start_pos[1:] + [n_tags]
             for pos, next_pos in zip(start_pos, end_pos):
                 mlflow.set_tags(dict(tags[pos:next_pos]))
             # Save metrics
