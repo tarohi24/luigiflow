@@ -487,7 +487,15 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[T], metaclass=MlflowTaskMeta[T])
                     for path in artifact_paths:
                         mlflow.log_artifact(path)
             # Save tags
-            mlflow.set_tags((self.to_mlflow_tags_w_parent_tags() if inherit_parent_tags else self.to_mlflow_tags()))
+            tags_dict: dict[str, Any] = (
+                self.to_mlflow_tags_w_parent_tags() if inherit_parent_tags else self.to_mlflow_tags()
+            )
+            tags: list[tuple[str, Any]] = list([(key, val) for key, val in tags_dict.items()])
+            n_tags = len(tags)
+            start_pos = list(range(0, n_tags, 50))
+            end_pos = start_pos[1: ] + [n_tags]
+            for pos, next_pos in zip(start_pos, end_pos):
+                mlflow.set_tags(dict(tags[pos:next_pos]))
             # Save metrics
             if metrics is not None:
                 mlflow.log_metrics(metrics)
