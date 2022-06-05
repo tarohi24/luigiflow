@@ -33,16 +33,15 @@ class Runner:
     config: RunnerConfig
     experiment_repository: TaskRepository
 
-    def run(
+    def run_with_task_param(
         self,
         protocol_name: str,
-        config_jsonnet_path: Path,
+        task_param: TaskParameter,
         dry_run: bool = False,
     ) -> RunReturn:
-        task_params = _load_task_params(path=config_jsonnet_path)
         task = self.experiment_repository.generate_task_tree(
             protocol=protocol_name,
-            task_params=task_params,
+            task_params=task_param,
         )
         experiment_name = task.get_experiment_name()
         mlflow.set_tracking_uri(self.config.mlflow_tracking_uri)
@@ -62,3 +61,16 @@ class Runner:
             **self.config.luigi_build_kwargs,
         )
         return task, res
+
+    def run(
+        self,
+        protocol_name: str,
+        config_jsonnet_path: Path,
+        dry_run: bool = False,
+    ) -> RunReturn:
+        task_param = _load_task_params(path=config_jsonnet_path)
+        return self.run_with_task_param(
+            protocol_name=protocol_name,
+            task_param=task_param,
+            dry_run=dry_run,
+        )
