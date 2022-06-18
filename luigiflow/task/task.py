@@ -166,6 +166,11 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[T], metaclass=MlflowTaskMeta[T])
             if name not in self.tags_to_exclude
         }
         base["name"] = str(self.__class__.__name__)
+        tags_sorted: list[tuple[str, MlflowTagValue]] = sorted(list(base.items()), key=itemgetter(0))
+        m = hashlib.md5()
+        for key, val in tags_sorted:
+            m.update(f"{key}={val}".encode("utf-8"))
+        base["_hash"] = m.hexdigest()
         return base
 
     def _run(self) -> NoReturn:
@@ -272,28 +277,28 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[T], metaclass=MlflowTaskMeta[T])
             for task_name, t in parent_tasks.items():
                 if isinstance(t, MlflowTask):
                     parent_tags: dict[str, MlflowTagValue] = t.to_mlflow_tags_w_parent_tags()
-                    t_tags_w_prefix = {f"{task_name}.{key}": val for key, val in parent_tags.items()}
+                    if len(parent_tags) > 100:
+                        t_tags_w_prefix = {f"{task_name}_hash": parent_tags["_hash"]}
+                    else:
+                        t_tags_w_prefix = {f"{task_name}.{key}": val for key, val in parent_tags.items()}
                 elif isinstance(t, TaskImplementationList):
-                    child_tags = [
-                        {f"{task_name}.{i}.{key}": val for key, val in task.to_mlflow_tags_w_parent_tags().items()}
-                        for i, task in enumerate(t)
-                    ]
-                    t_tags_w_prefix = dict()
-                    for ctags in child_tags:
-                        t_tags_w_prefix = t_tags_w_prefix | ctags
+                    if len(t) > 100:
+                        m = hashlib.md5()
+                        for task in t:
+                            m.update(task.to_mlflow_tags()["_hash"].encode("utf-8"))
+                        t_tags_w_prefix = {f"{task_name}_hash": m.hexdigest()}
+                    else:
+                        t_tags_w_prefix = dict()
+                        for i, task in enumerate(t):
+                            ctags = task.to_mlflow_tags_w_parent_tags()
+                            if len(ctags) > 100:
+                                t_tags_w_prefix = t_tags_w_prefix | {f"{task_name}.{i}_hash": ctags["_hash"]}
+                            else:
+                                t_tags_w_prefix = t_tags_w_prefix | {
+                                    f"{task_name}.{i}.{key}": val for key, val in ctags.items()
+                                }
                 else:
                     raise AssertionError()
-
-                if len(t_tags_w_prefix) > 100:
-                    tag_items: list[tuple[str, MlflowTagValue]] = sorted(  # type: ignore
-                        list(t_tags_w_prefix.items()), key=itemgetter(0)
-                    )
-                    m = hashlib.md5()
-                    for key, val in tag_items:
-                        m.update(f"{key}={val}".encode("utf-8"))
-                    t_tags_w_prefix = {
-                        f"{task_name}_hashed": m.hexdigest(),
-                    }
 
                 tags = dict(**tags, **t_tags_w_prefix)
 

@@ -22,6 +22,7 @@ from luigiflow.task import (
 from luigiflow.task_repository import TaskRepository
 from luigiflow.types import TaskParameter
 from luigiflow.utils.savers import save_dataframe, save_pickle, save_json
+from luigiflow.utils.testing import assert_two_tags_equal_wo_hashes
 
 
 class DummyProtocol(MlflowTaskProtocol):
@@ -58,26 +59,28 @@ def test_to_mlflow_tags(monkeypatch):
         },
         protocol="DummyProtocol",
     )
-    TestCase().assertDictEqual(
-        task.to_mlflow_tags(),
-        {
-            "name": "Task",
-            "param_str": "hi",
-            "param_bool": 1,
-        },
-    )
+    actual = task.to_mlflow_tags()
+    expected = {
+        "name": "Task",
+        "_hash": "...",
+        "param_str": "hi",
+        "param_bool": 1,
+    }
+    assert_two_tags_equal_wo_hashes(actual, expected)
 
     # disable `tags_to_exclude`
     monkeypatch.setattr(Task, "tags_to_exclude", set())
+    actual = task.to_mlflow_tags()
     expected = {
         "name": "Task",
+        "_hash": "...",
         "param_int": 10,
         "param_str": "hi",
         "param_bool": 1,
         "param_date": "2021-01-02",
         "param_large_value": 200000000000.0,
     }
-    assert task.to_mlflow_tags() == expected
+    assert_two_tags_equal_wo_hashes(actual, expected)
 
     class AnotherTask(MlflowTask):
         strange_param = luigi.Parameter(default=Task)  # invalid value
@@ -193,19 +196,22 @@ def test_to_tags_w_parents(monkeypatch):
         task_params=task_params,
         protocol="IMainTask",
     )
-
-    assert sorted(main_task.to_mlflow_tags_w_parent_tags().items()) == sorted(
-        {
-            "name": "MainTask",
-            "bool_param": 0,
-            "ccc.name": "TaskC",
-            "ccc.int_param": 10,
-            "bbb.name": "TaskB",
-            "bbb.value": 1,
-            "bbb.aaa.name": "TaskA",
-            "bbb.aaa.param": "hi",
-        }.items()
-    )
+    actual = main_task.to_mlflow_tags_w_parent_tags()
+    expected = {
+        "name": "MainTask",
+        "_hash": "...",
+        "bool_param": 0,
+        "ccc.name": "TaskC",
+        "ccc._hash": "...",
+        "ccc.int_param": 10,
+        "bbb.name": "TaskB",
+        "bbb._hash": "...",
+        "bbb.value": 1,
+        "bbb.aaa.name": "TaskA",
+        "bbb.aaa._hash": "...",
+        "bbb.aaa.param": "hi",
+    }
+    assert_two_tags_equal_wo_hashes(actual, expected)
 
     # Test non-recursive outputs
     class MainTaskWoRecursiveTags(MlflowTask):
@@ -230,13 +236,13 @@ def test_to_tags_w_parents(monkeypatch):
         task_params=task_params,
         protocol="IMainTask",
     )
-    TestCase().assertDictEqual(
-        task.to_mlflow_tags_w_parent_tags(),
-        {
-            "name": "MainTaskWoRecursiveTags",
-            "bool_param": True,
-        },
-    )
+    actual = task.to_mlflow_tags_w_parent_tags()
+    expected = {
+        "name": "MainTaskWoRecursiveTags",
+        "_hash": "...",
+        "bool_param": True,
+    }
+    assert_two_tags_equal_wo_hashes(actual, expected)
 
     monkeypatch.setattr(TaskB, "output_tags_recursively", False)
     task_params["cls"] = "MainTask"
@@ -244,17 +250,19 @@ def test_to_tags_w_parents(monkeypatch):
         task_params=task_params,
         protocol="IMainTask",
     )
-    TestCase().assertDictEqual(
-        task.to_mlflow_tags_w_parent_tags(),
-        {
-            "name": "MainTask",
-            "bool_param": False,
-            "ccc.name": "TaskC",
-            "ccc.int_param": 10,
-            "bbb.value": 1,
-            "bbb.name": "TaskB",
-        },
-    )
+    actual = task.to_mlflow_tags_w_parent_tags()
+    expected = {
+        "name": "MainTask",
+        "_hash": "...",
+        "bool_param": False,
+        "ccc.name": "TaskC",
+        "ccc._hash": "...",
+        "ccc.int_param": 10,
+        "bbb.value": 1,
+        "bbb.name": "TaskB",
+        "bbb._hash": "...",
+    }
+    assert_two_tags_equal_wo_hashes(actual, expected)
 
 
 def test_save_artifacts(artifacts_server):
@@ -417,13 +425,16 @@ def test_to_mlflow_tags_with_non_mlflow_task_requirements(tmpdir, artifacts_serv
     actual_tags = cast(MlflowTask, task).to_mlflow_tags_w_parent_tags()
     expected_tags = {
         "name": "TaskB",
+        "_hash": "...",
         "a.0.name": "TaskA",
         "a.0.value": 1,
+        "a.0._hash": "...",
         "a.1.name": "TaskA",
         "a.1.value": 2,
+        "a.1._hash": "...",
         # "b" should not appear
     }
-    assert actual_tags == expected_tags
+    assert_two_tags_equal_wo_hashes(actual_tags, expected_tags)
 
 
 def test_too_many_mlflow_tags(artifacts_server):
@@ -484,7 +495,8 @@ def test_too_many_mlflow_tags(artifacts_server):
     expected = {
         "name": "TaskB",
         "value": 1,
-        "a_hashed": "65b0d3244a287daa163e8a02a0b1b919",
+        "a_hash": "cd16cc266124a7893d2b257ab61fba78",
+        "_hash": "20452ef7f12c93ad6f0cbc3702c53591",
     }
     assert expected == actual
     # hash values should not change each time
@@ -513,4 +525,5 @@ def test_too_many_mlflow_tags(artifacts_server):
         dry_run=True,
     )
     actual = cast(MlflowTask, task).to_mlflow_tags_w_parent_tags()
+    assert set(actual.keys()) == set(expected.keys())
     assert expected != actual

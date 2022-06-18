@@ -11,6 +11,8 @@ import subprocess
 import time
 from collections import namedtuple
 
+from luigiflow.serializer import MlflowTagValue
+
 ArtifactsServer = namedtuple(
     "ArtifactsServer",
     ["backend_store_uri", "artifacts_destination", "url", "process"],
@@ -71,3 +73,16 @@ def launch_mlflow_server(host, port, backend_store_uri, default_artifact_root):
     process = subprocess.Popen(cmd)
     _await_server_up_or_die(port)
     return process
+
+
+def assert_two_tags_equal_wo_hashes(a: dict[str, MlflowTagValue], b: dict[str, MlflowTagValue]):
+    assert set(a.keys()) == set(b.keys())
+    keys = set(a.keys())
+    for key in keys:
+        if key.endswith("_hash"):
+            assert isinstance(a[key], str)
+            assert len(a[key]) > 0
+            assert isinstance(b[key], str)
+            assert len(b[key]) > 0
+        else:
+            assert a[key] == b[key]

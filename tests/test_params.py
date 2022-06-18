@@ -13,6 +13,7 @@ from luigiflow.custom_params import (
 from luigiflow.task import MlflowTask, TaskConfig, MlflowTaskProtocol
 from luigiflow.task_repository import TaskRepository, UnknownParameter
 from luigiflow.types import TaskParameter
+from luigiflow.utils.testing import assert_two_tags_equal_wo_hashes
 
 
 class TaskProtocol(MlflowTaskProtocol):
@@ -116,14 +117,17 @@ def test_optional_param():
     assert task.maybe_value is None
     assert task.maybe_str is None
     assert task.maybe_date is None
-    assert task.to_mlflow_tags() == {
+    actual = task.to_mlflow_tags()
+    expected = {
         "maybe_value": "null",
         "maybe_float": "null",
         "maybe_date": "null",
         "maybe_str": "null",
         "maybe_value_default_none": "null",
         "name": "Task",
+        "_hash": "...",
     }
+    assert_two_tags_equal_wo_hashes(actual, expected)
 
     config = {
         "cls": "Task",
