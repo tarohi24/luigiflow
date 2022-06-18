@@ -1,6 +1,8 @@
+import hashlib
 import logging
 import os
 import tempfile
+from operator import itemgetter
 from pathlib import Path
 from typing import Generic, Protocol, Any, final, NoReturn, Optional, Union, Callable, TypeVar
 
@@ -16,7 +18,6 @@ from tqdm.contrib.logging import logging_redirect_tqdm
 
 from luigiflow.serializer import MlflowTagSerializer, default_serializer, MlflowTagValue
 from luigiflow.task import MlflowTaskProtocol, RequirementProtocol, OptionalTask, TaskList, TaskImplementationList
-
 
 T = TypeVar("T", bound=MlflowTaskProtocol)
 K = TypeVar("K")
@@ -257,25 +258,45 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[T], metaclass=MlflowTaskMeta[T])
 
         def to_tags(task: MlflowTask) -> dict[str, MlflowTagValue]:
             tags = task.to_mlflow_tags()
-            if task.requires() is None:
+            maybe_requirements: Optional[dict[str, MlflowTaskProtocol]] = task.requires()
+            if maybe_requirements is None:
                 return tags
-            elif len(task.requires()) == 0:
-                return tags
-            parent_tasks: dict[str, MlflowTask] = {
-                key: val for key, val in task.requires().items() if isinstance(val, MlflowTask)
+            else:
+                if len(maybe_requirements) == 0:
+                    return tags
+            parent_tasks: dict[str, MlflowTask | TaskImplementationList] = {
+                key: val
+                for key, val in maybe_requirements.items()
+                if (isinstance(val, MlflowTask) or isinstance(val, TaskImplementationList))
             }
             for task_name, t in parent_tasks.items():
-                t_tags_w_prefix = {f"{task_name}.{key}": val for key, val in t.to_mlflow_tags_w_parent_tags().items()}
-                tags = dict(**tags, **t_tags_w_prefix)
-            parent_list_tasks: dict[str, TaskImplementationList] = {
-                key: val for key, val in task.requires().items() if isinstance(val, TaskImplementationList)
-            }
-            for task_name, task_list in parent_list_tasks.items():
-                for i, task in enumerate(task_list):
+                if isinstance(t, MlflowTask):
+                    parent_tags: dict[str, MlflowTagValue] = t.to_mlflow_tags_w_parent_tags()
+                    t_tags_w_prefix = {f"{task_name}.{key}": val for key, val in parent_tags.items()}
+                elif isinstance(t, TaskImplementationList):
+                    child_tags = [
+                        {f"{task_name}.{i}.{key}": val for key, val in task.to_mlflow_tags_w_parent_tags().items()}
+                        for i, task in enumerate(t)
+                    ]
+                    t_tags_w_prefix = dict()
+                    for ctags in child_tags:
+                        t_tags_w_prefix = t_tags_w_prefix | ctags
+                else:
+                    raise AssertionError()
+
+                if len(t_tags_w_prefix) > 100:
+                    tag_items: list[tuple[str, MlflowTagValue]] = sorted(  # type: ignore
+                        list(t_tags_w_prefix.items()), key=itemgetter(0)
+                    )
+                    m = hashlib.md5()
+                    for key, val in tag_items:
+                        m.update(f"{key}={val}".encode("utf-8"))
                     t_tags_w_prefix = {
-                        f"{task_name}.{i}.{key}": val for key, val in task.to_mlflow_tags_w_parent_tags().items()
+                        f"{task_name}_hashed": m.hexdigest(),
                     }
-                    tags = dict(**tags, **t_tags_w_prefix)
+
+                tags = dict(**tags, **t_tags_w_prefix)
+
             return tags
 
         return to_tags(self)

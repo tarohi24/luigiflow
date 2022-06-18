@@ -20,6 +20,7 @@ from luigiflow.task import (
     OptionalTask,
 )
 from luigiflow.task_repository import TaskRepository
+from luigiflow.types import TaskParameter
 from luigiflow.utils.savers import save_dataframe, save_pickle, save_json
 
 
@@ -423,3 +424,93 @@ def test_to_mlflow_tags_with_non_mlflow_task_requirements(tmpdir, artifacts_serv
         # "b" should not appear
     }
     assert actual_tags == expected_tags
+
+
+def test_too_many_mlflow_tags(artifacts_server):
+    class TaskA(MlflowTask):
+        value: int = luigi.IntParameter()
+        config = TaskConfig(
+            protocols=[DummyProtocol],
+        )
+
+        def _run(self) -> NoReturn:
+            self.save_to_mlflow()
+
+    class TaskB(MlflowTask):
+        value: int = luigi.IntParameter()
+        config = TaskConfig(
+            protocols=[DummyProtocol],
+            requirements={
+                "a": TaskList(DummyProtocol),
+            },
+        )
+
+        def _run(self) -> NoReturn:
+            self.save_to_mlflow()
+
+    runner = Runner(
+        config=RunnerConfig(
+            mlflow_tracking_uri=artifacts_server.url,
+            use_local_scheduler=True,
+            create_experiment_if_not_existing=True,
+        ),
+        experiment_repository=TaskRepository(
+            task_classes=[TaskA, TaskB],
+        ),
+    )
+    task_param: TaskParameter = {
+        "cls": "TaskB",
+        "params": {
+            "value": 1,
+        },
+        "requires": {
+            "a": [
+                {
+                    "cls": "TaskA",
+                    "params": {
+                        "value": i,
+                    },
+                }
+                for i in range(200)
+            ]
+        },
+    }
+    task, _ = runner.run_with_task_param(
+        protocol_name="DummyProtocol",
+        task_param=task_param,
+        dry_run=True,
+    )
+    actual = cast(MlflowTask, task).to_mlflow_tags_w_parent_tags()
+    expected = {
+        "name": "TaskB",
+        "value": 1,
+        "a_hashed": "65b0d3244a287daa163e8a02a0b1b919",
+    }
+    assert expected == actual
+    # hash values should not change each time
+    actual = cast(MlflowTask, task).to_mlflow_tags_w_parent_tags()
+    assert expected == actual
+    task_param: TaskParameter = {
+        "cls": "TaskB",
+        "params": {
+            "value": 1,
+        },
+        "requires": {
+            "a": [
+                {
+                    "cls": "TaskA",
+                    "params": {
+                        "value": i,
+                    },
+                }
+                for i in range(201)  # changed
+            ]
+        },
+    }
+    task, _ = runner.run_with_task_param(
+        protocol_name="DummyProtocol",
+        task_param=task_param,
+        dry_run=True,
+    )
+    actual = cast(MlflowTask, task).to_mlflow_tags_w_parent_tags()
+    assert expected != actual
