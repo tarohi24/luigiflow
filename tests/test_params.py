@@ -125,9 +125,8 @@ def test_optional_param():
         "maybe_str": "null",
         "maybe_value_default_none": "null",
         "name": "Task",
-        "_hash": "...",
     }
-    assert_two_tags_equal_wo_hashes(actual, expected)
+    assert actual == expected
 
     config = {
         "cls": "Task",

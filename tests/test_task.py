@@ -62,25 +62,23 @@ def test_to_mlflow_tags(monkeypatch):
     actual = task.to_mlflow_tags()
     expected = {
         "name": "Task",
-        "_hash": "...",
         "param_str": "hi",
         "param_bool": 1,
     }
-    assert_two_tags_equal_wo_hashes(actual, expected)
+    assert actual == expected
 
     # disable `tags_to_exclude`
     monkeypatch.setattr(Task, "tags_to_exclude", set())
     actual = task.to_mlflow_tags()
     expected = {
         "name": "Task",
-        "_hash": "...",
         "param_int": 10,
         "param_str": "hi",
         "param_bool": 1,
         "param_date": "2021-01-02",
         "param_large_value": 200000000000.0,
     }
-    assert_two_tags_equal_wo_hashes(actual, expected)
+    assert actual == expected
 
     class AnotherTask(MlflowTask):
         strange_param = luigi.Parameter(default=Task)  # invalid value
@@ -210,57 +208,6 @@ def test_to_tags_w_parents(monkeypatch):
         "bbb.aaa.name": "TaskA",
         "bbb.aaa._hash": "...",
         "bbb.aaa.param": "hi",
-    }
-    assert_two_tags_equal_wo_hashes(actual, expected)
-
-    # Test non-recursive outputs
-    class MainTaskWoRecursiveTags(MlflowTask):
-        bool_param: bool = luigi.BoolParameter(default=True)
-        config = TaskConfig(
-            protocols=[
-                IMainTask,
-            ],
-            output_tags_recursively=False,
-            requirements={
-                "bbb": ITaskB,
-                "ccc": ITaskC,
-            },
-        )
-
-        def _run(self) -> NoReturn:
-            ...
-
-    task_repo._protocols["IMainTask"].register(MainTaskWoRecursiveTags)
-    task_params["cls"] = "MainTaskWoRecursiveTags"
-    task = task_repo.generate_task_tree(
-        task_params=task_params,
-        protocol="IMainTask",
-    )
-    actual = task.to_mlflow_tags_w_parent_tags()
-    expected = {
-        "name": "MainTaskWoRecursiveTags",
-        "_hash": "...",
-        "bool_param": True,
-    }
-    assert_two_tags_equal_wo_hashes(actual, expected)
-
-    monkeypatch.setattr(TaskB, "output_tags_recursively", False)
-    task_params["cls"] = "MainTask"
-    task = task_repo.generate_task_tree(
-        task_params=task_params,
-        protocol="IMainTask",
-    )
-    actual = task.to_mlflow_tags_w_parent_tags()
-    expected = {
-        "name": "MainTask",
-        "_hash": "...",
-        "bool_param": False,
-        "ccc.name": "TaskC",
-        "ccc._hash": "...",
-        "ccc.int_param": 10,
-        "bbb.value": 1,
-        "bbb.name": "TaskB",
-        "bbb._hash": "...",
     }
     assert_two_tags_equal_wo_hashes(actual, expected)
 
@@ -496,12 +443,23 @@ def test_too_many_mlflow_tags(artifacts_server):
         "name": "TaskB",
         "value": 1,
         "a_hash": "cd16cc266124a7893d2b257ab61fba78",
-        "_hash": "20452ef7f12c93ad6f0cbc3702c53591",
+        "_hash": "dd3815e2b87846ed47d0614cf2daba64",
     }
     assert expected == actual
+
     # hash values should not change each time
     actual = cast(MlflowTask, task).to_mlflow_tags_w_parent_tags()
     assert expected == actual
+
+    task_param["requires"]["a"][0]["params"]["value"] = 1  # modify
+    task, _ = runner.run_with_task_param(
+        protocol_name="DummyProtocol",
+        task_param=task_param,
+        dry_run=True,
+    )
+    actual = cast(MlflowTask, task).to_mlflow_tags_w_parent_tags()
+    assert expected["a_hash"] != actual["a_hash"]
+
     task_param: TaskParameter = {
         "cls": "TaskB",
         "params": {
@@ -526,4 +484,79 @@ def test_too_many_mlflow_tags(artifacts_server):
     )
     actual = cast(MlflowTask, task).to_mlflow_tags_w_parent_tags()
     assert set(actual.keys()) == set(expected.keys())
-    assert expected != actual
+    assert expected["a_hash"] != actual["a_hash"]
+
+
+def test_hash_of_nested_requirements(artifacts_server):
+    class TaskA(MlflowTask):
+        value: int = luigi.IntParameter()
+        config = TaskConfig(
+            protocols=[DummyProtocol],
+        )
+
+        def _run(self) -> NoReturn:
+            self.save_to_mlflow()
+
+    class TaskB(MlflowTask):
+        value: int = luigi.IntParameter()
+        config = TaskConfig(
+            protocols=[DummyProtocol],
+            requirements={
+                "a": TaskList(DummyProtocol),
+            },
+        )
+
+        def _run(self) -> NoReturn:
+            self.save_to_mlflow()
+
+    runner = Runner(
+        config=RunnerConfig(
+            mlflow_tracking_uri=artifacts_server.url,
+            use_local_scheduler=True,
+            create_experiment_if_not_existing=True,
+        ),
+        experiment_repository=TaskRepository(
+            task_classes=[TaskA, TaskB],
+        ),
+    )
+    task_param: TaskParameter = {
+        "cls": "TaskB",
+        "params": {
+            "value": 1,
+        },
+        "requires": {
+            "a": [
+                {
+                    "cls": "TaskB",
+                    "params": {
+                        "value": 1,
+                    },
+                    "requires": {
+                        "a": [
+                            {
+                                "cls": "TaskA",
+                                "params": {
+                                    "value": 1,
+                                },
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+    }
+    task, _ = runner.run_with_task_param(
+        protocol_name="DummyProtocol",
+        task_param=task_param,
+        dry_run=True,
+    )
+    hash_before = cast(MlflowTask, task).to_mlflow_tags_w_parent_tags()["a.0._hash"]
+    task_param["requires"]["a"][0]["requires"]["a"][0]["params"]["value"] = 2
+    task, _ = runner.run_with_task_param(
+        protocol_name="DummyProtocol",
+        task_param=task_param,
+        dry_run=True,
+    )
+    hash_after = cast(MlflowTask, task).to_mlflow_tags_w_parent_tags()["a.0._hash"]
+    assert hash_before != hash_after
+

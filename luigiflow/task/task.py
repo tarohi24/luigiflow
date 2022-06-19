@@ -4,7 +4,7 @@ import os
 import tempfile
 from operator import itemgetter
 from pathlib import Path
-from typing import Generic, Protocol, Any, final, NoReturn, Optional, Union, Callable, TypeVar
+from typing import Generic, Protocol, Any, final, NoReturn, Optional, Union, Callable, TypeVar, cast
 
 import luigi
 import mlflow
@@ -32,7 +32,6 @@ class TaskConfig(BaseModel, extra=Extra.forbid):
     requirements: dict[str, RequirementProtocol] = Field(default_factory=dict)
     artifact_filenames: dict[str, str] = Field(default_factory=dict)
     tags_to_exclude: set[str] = Field(default_factory=set)
-    output_tags_recursively: bool = Field(default=True)
 
 
 class MlflowTaskMeta(Register, Generic[T], type(Protocol)):
@@ -59,7 +58,6 @@ class MlflowTaskMeta(Register, Generic[T], type(Protocol)):
                 cls.requirements_required[key] = True
 
         cls.tags_to_exclude = config.tags_to_exclude
-        cls.output_tags_recursively = config.output_tags_recursively
         cls.artifact_filenames = config.artifact_filenames
         cls.param_types = {
             key: type(maybe_param) for key, maybe_param in namespace.items() if isinstance(maybe_param, luigi.Parameter)
@@ -166,11 +164,6 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[T], metaclass=MlflowTaskMeta[T])
             if name not in self.tags_to_exclude
         }
         base["name"] = str(self.__class__.__name__)
-        tags_sorted: list[tuple[str, MlflowTagValue]] = sorted(list(base.items()), key=itemgetter(0))
-        m = hashlib.md5()
-        for key, val in tags_sorted:
-            m.update(f"{key}={val}".encode("utf-8"))
-        base["_hash"] = m.hexdigest()
         return base
 
     def _run(self) -> NoReturn:
@@ -258,8 +251,6 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[T], metaclass=MlflowTaskMeta[T])
         The format of dict keys is `{param_path}.{param_name}`,
         where `param_path` represents the relative path.
         """
-        if not self.output_tags_recursively:
-            return self.to_mlflow_tags()
 
         def to_tags(task: MlflowTask) -> dict[str, MlflowTagValue]:
             tags = task.to_mlflow_tags()
@@ -285,7 +276,8 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[T], metaclass=MlflowTaskMeta[T])
                     if len(t) > 100:
                         m = hashlib.md5()
                         for task in t:
-                            m.update(task.to_mlflow_tags()["_hash"].encode("utf-8"))
+                            task = cast(MlflowTask, task)
+                            m.update(task.to_mlflow_tags_w_parent_tags()["_hash"].encode("utf-8"))
                         t_tags_w_prefix = {f"{task_name}_hash": m.hexdigest()}
                     else:
                         t_tags_w_prefix = dict()
@@ -304,7 +296,13 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[T], metaclass=MlflowTaskMeta[T])
 
             return tags
 
-        return to_tags(self)
+        serialized_tags = to_tags(self)
+        tags_sorted: list[tuple[str, str]] = sorted(list(serialized_tags.items()), key=itemgetter(0))  # type: ignore
+        m = hashlib.md5()
+        for key, val in tags_sorted:
+            m.update(f"{key}={val}".encode("utf-8"))
+        serialized_tags["_hash"] = m.hexdigest()
+        return serialized_tags
 
     @final
     def save_to_mlflow(
