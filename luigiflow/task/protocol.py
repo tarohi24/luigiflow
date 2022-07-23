@@ -8,7 +8,7 @@ from mlflow.protos.service_pb2 import RunStatus, ACTIVE_ONLY
 from luigiflow.serializer import MlflowTagSerializer, MlflowTagValue
 
 
-T = TypeVar("T", bound=dict)  # to denote the type of `task.requires()`
+T = TypeVar("T", bound=dict, covariant=True)  # to denote the type of `task.requires()`
 K = TypeVar("K")  # for `save_artifacts`
 
 
@@ -23,7 +23,7 @@ class MlflowTaskProtocol(Protocol[T]):
     """
 
     @classmethod
-    def get_protocols(cls) -> list[Protocol]:
+    def get_protocols(cls) -> list[type["MlflowTaskProtocol"]]:
         ...
 
     @classmethod
@@ -76,4 +76,11 @@ class MlflowTaskProtocol(Protocol[T]):
         ...
 
     def logger(self) -> logging.Logger:
+        ...
+
+    def get_task_id(self) -> str:
+        """
+        Return the task ID on Luigi.
+        :return:
+        """
         ...

@@ -9,11 +9,12 @@ from luigiflow.task.protocol import MlflowTaskProtocol
 V = TypeVar("V", bound=type[MlflowTaskProtocol])
 K = TypeVar("K")
 T = TypeVar("T", bound=dict)  # to denote the type of `task.requires()`
+_TT = TypeVar("_TT", bound=MlflowTaskProtocol)
 
 
 @dataclass
-class OptionalTask:
-    base_cls: type[Protocol]
+class OptionalTask(Generic[V]):
+    base_cls: type[V]
 
     def __post_init__(self):
         assert issubclass(self.base_cls, MlflowTaskProtocol)
@@ -24,7 +25,7 @@ class TaskList(Generic[V]):
     protocol: type[V]
 
     # this method is just to give hints
-    def apply(self, fn: Callable[[...], K], **kwargs) -> list[K]:
+    def apply(self, fn: Callable[..., K], **kwargs) -> list[K]:
         raise NotImplementedError
 
     def __iter__(self) -> Iterator[V]:
@@ -34,20 +35,17 @@ class TaskList(Generic[V]):
 RequirementProtocol = Union[type[MlflowTaskProtocol], OptionalTask, TaskList]
 
 
-class TaskImplementationListMeta(Register, Generic[T]):
+class TaskImplementationListMeta(Register, Generic[_TT]):
     def __new__(mcs, classname: str, bases: tuple[type, ...], namespace: dict[str, Any]):
         cls = super(TaskImplementationListMeta, mcs).__new__(mcs, classname, bases, namespace)
         cls.disable_instance_cache()
         return cls
 
-    def __call__(cls, implementations: list[T], *args, **kwargs):
+    def __call__(cls, implementations: list[_TT], *args, **kwargs):
         instance = super(TaskImplementationListMeta, cls).__call__(*args, **kwargs)
         instance.implementations = implementations
-        instance.task_id = instance.task_id + "-".join([req.task_id for req in implementations])
+        instance.task_id = instance.task_id + "-".join([req.get_task_id() for req in implementations])
         return instance
-
-
-_TT = TypeVar("_TT", bound=MlflowTaskProtocol)
 
 
 @dataclass(init=False)
@@ -67,7 +65,7 @@ class TaskImplementationList(Generic[_TT], luigi.Task, metaclass=TaskImplementat
     def complete(self):
         return all(impl.complete() for impl in self.implementations)
 
-    def apply(self, fn: Callable[[...], K], **kwargs) -> list[K]:
+    def apply(self, fn: Callable[..., K], **kwargs) -> list[K]:
         # Note that `fn` itself is not applied. Only its name is used.
         # So you can pass methods of protocols
         callables: list[Callable] = [getattr(impl, fn.__name__) for impl in self.implementations]
