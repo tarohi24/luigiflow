@@ -363,3 +363,6 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[T], metaclass=MlflowTaskMeta[T])
                 self.logger,
             ]
         )
+
+    def get_task_id(self) -> str:
+        return self.task_id
