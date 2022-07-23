@@ -47,11 +47,14 @@ class TaskImplementationListMeta(Register, Generic[T]):
         return instance
 
 
-@dataclass(init=False)
-class TaskImplementationList(Generic[T], luigi.Task, metaclass=TaskImplementationListMeta):
-    implementations: list[T]
+_TT = TypeVar("_TT", bound=MlflowTaskProtocol)
 
-    def requires(self) -> list[T]:
+
+@dataclass(init=False)
+class TaskImplementationList(Generic[_TT], luigi.Task, metaclass=TaskImplementationListMeta):
+    implementations: list[_TT]
+
+    def requires(self) -> list[_TT]:
         return self.implementations
 
     def run(self):
@@ -89,5 +92,5 @@ class TaskImplementationList(Generic[T], luigi.Task, metaclass=TaskImplementatio
     def __len__(self) -> int:
         return len(self.implementations)
 
-    def __iter__(self) -> Iterator[T]:
+    def __iter__(self) -> Iterator[_TT]:
         return iter(self.implementations)
