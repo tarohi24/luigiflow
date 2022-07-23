@@ -1,9 +1,18 @@
 import datetime
 from dataclasses import dataclass
-from typing import Any, Callable, TypeVar, Union, cast, Optional
+from typing import Any, Callable, TypeVar, Union, cast, Optional, Generic
 
 MlflowTagValue = Union[str, int, float]
 T = TypeVar("T")
+
+
+@dataclass
+class _Serializer(Generic[T]):
+    typ: type[T]
+    serialize_fn: Callable[[T], MlflowTagValue]
+
+    def __call__(self, value: T) -> MlflowTagValue:
+        return self.serialize_fn(value)
 
 
 @dataclass
@@ -11,15 +20,15 @@ class MlflowTagSerializer:
     # T isn't V because V is a value type, whereas T is a parameter
     # `serializers` is not a dict because the order matters.
     # e.g. a `datetime` is also a `date`. Then it has to prioritize the `datetime` serializer.
-    serializers: list[tuple[type[T], Callable[[T], MlflowTagValue]]]
+    serializers: list[_Serializer]
 
     def serialize(self, val: Any) -> MlflowTagValue:
         if val is None:
             return "null"
         val_type: type = type(val)
-        for typ, fn in self.serializers:
-            if isinstance(val, typ):
-                return fn(val)
+        for ser in self.serializers:
+            if isinstance(val, ser.typ):
+                return ser(val)
         raise TypeError(f"Got an unknown parameter type: {val_type}")
 
 
@@ -29,11 +38,11 @@ def identical_function(val: T) -> T:
 
 default_serializer: MlflowTagSerializer = MlflowTagSerializer(
     [
-        (str, identical_function),
-        (int, identical_function),
-        (float, identical_function),
-        (bool, lambda b: int(b)),
-        (datetime.date, lambda d: cast(datetime.date, d).isoformat()),
+        _Serializer[str](str, identical_function),
+        _Serializer[int](int, identical_function),
+        _Serializer[float](float, identical_function),
+        _Serializer[bool](bool, lambda b: int(b)),
+        _Serializer[datetime.date](datetime.date, lambda d: cast(datetime.date, d).isoformat()),
     ]
 )
 

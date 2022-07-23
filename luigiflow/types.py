@@ -5,4 +5,5 @@ from typing import TypedDict, Any, Union
 class TaskParameter(TypedDict, total=False):
     cls: str  # either type or class is a reserved word, so I chose to use `cls`
     params: dict[str, Any]
-    requires: dict[str, Union["TaskParameter", list["TaskParameter"]]]
+    # ignore type errors. mypy doesn't support recursive types
+    requires: dict[str, Union["TaskParameter", list["TaskParameter"]]]  # type: ignore
