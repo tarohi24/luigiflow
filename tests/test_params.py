@@ -10,10 +10,10 @@ from luigiflow.custom_params import (
     OptionalIntParameter,
     OptionalStrParameter,
 )
-from luigiflow.task import MlflowTask, MlflowTaskProtocol, TaskConfig
+from luigiflow.task.protocol import MlflowTaskProtocol
+from luigiflow.task.task import MlflowTask, TaskConfig
 from luigiflow.task_repository import TaskRepository, UnknownParameter
 from luigiflow.types import TaskParameter
-from luigiflow.utils.testing import assert_two_tags_equal_wo_hashes
 
 
 class TaskProtocol(MlflowTaskProtocol):

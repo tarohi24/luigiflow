@@ -7,13 +7,9 @@ import pytest
 
 from luigiflow.config import RunnerConfig
 from luigiflow.runner import Runner
-from luigiflow.task import (
-    MlflowTask,
-    MlflowTaskProtocol,
-    OptionalTask,
-    TaskConfig,
-    TaskList,
-)
+from luigiflow.task.protocol import MlflowTaskProtocol
+from luigiflow.task.task import MlflowTask, TaskConfig
+from luigiflow.task.task_types import OptionalTask, TaskList
 from luigiflow.task_repository import (
     ProtocolNotRegistered,
     TaskRepository,
@@ -80,14 +76,6 @@ def test_duplicated_tasks():
 def test_unknown_protocol():
     class UnknownProtocol(MlflowTaskProtocol):
         ...
-
-    class UnknownTask(MlflowTask):
-        config = TaskConfig(
-            protocols=[
-                UnknownProtocol,
-            ],
-            requirements=dict(),
-        )
 
     class TaskHavingUnknownProtocol(MlflowTask):
         config = TaskConfig(

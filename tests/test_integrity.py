@@ -9,7 +9,8 @@ from luigi import LuigiStatusCode
 
 from luigiflow.config import RunnerConfig
 from luigiflow.runner import Runner
-from luigiflow.task import MlflowTask, MlflowTaskProtocol, TaskConfig
+from luigiflow.task.protocol import MlflowTaskProtocol
+from luigiflow.task.task import MlflowTask, TaskConfig
 from luigiflow.task_repository import TaskRepository
 from luigiflow.utils.savers import save_dataframe
 

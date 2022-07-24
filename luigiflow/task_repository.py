@@ -83,11 +83,24 @@ class TaskRepository:
     def generate_task_tree(
         self,
         task_params: TaskParameter,
-        protocol: Union[str, type[MlflowTaskProtocol]],
+        protocol: Union[str, type[MlflowTaskProtocol]] = None,
     ) -> MlflowTask:
-        protocol_name: str = (
-            protocol if isinstance(protocol, str) else protocol.__name__
-        )
+        if protocol is None:
+            task_name: str = task_params["cls"]
+            for repo_item in self._protocols.values():
+                try:
+                    repo_item.get(task_name)
+                except KeyError:
+                    continue
+                # if successfully find a protocol
+                protocol_name = repo_item.protocol_type.__name__
+                break
+            else:
+                raise ValueError(f"Unknown task {task_name}")
+        else:
+            protocol_name: str = (
+                protocol if isinstance(protocol, str) else protocol.__name__
+            )
         cls_name = task_params["cls"]
         try:
             protocol_item = self._protocols[protocol_name]
