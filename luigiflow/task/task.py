@@ -20,6 +20,7 @@ from luigiflow.serializer import MlflowTagSerializer, default_serializer, Mlflow
 from luigiflow.task import MlflowTaskProtocol, RequirementProtocol, OptionalTask, TaskList, TaskImplementationList
 
 T = TypeVar("T", bound=MlflowTaskProtocol)
+_TReq = TypeVar("_TReq", bound=dict)
 K = TypeVar("K")
 
 
@@ -34,7 +35,7 @@ class TaskConfig(BaseModel, extra=Extra.forbid):
     tags_to_exclude: set[str] = Field(default_factory=set)
 
 
-class MlflowTaskMeta(Register, Generic[T], type(Protocol)):
+class MlflowTaskMeta(Register, Generic[_TReq], type(Protocol)):  # type: ignore[misc]
     def __new__(mcs, classname: str, bases: tuple[type, ...], namespace: dict[str, Any]):
         cls = super(MlflowTaskMeta, mcs).__new__(mcs, classname, bases, namespace)
         try:
@@ -66,7 +67,7 @@ class MlflowTaskMeta(Register, Generic[T], type(Protocol)):
         return cls
 
     # `T` is an `MlflowTask` class
-    def __call__(cls, requirements_impl: T, *args, **kwargs):
+    def __call__(cls, requirements_impl: _TReq, *args, **kwargs):
         """
         This specifies how to instantiate `MlflowTask`, i.e. this is `Mlflow.__init__`.
         Because `luigi.Task` has a metaclass `Register`, you cannot override `luigi.Task.__init__`.
@@ -92,7 +93,7 @@ class MlflowTaskMeta(Register, Generic[T], type(Protocol)):
         return instance
 
 
-class MlflowTask(luigi.Task, MlflowTaskProtocol[T], metaclass=MlflowTaskMeta[T]):
+class MlflowTask(luigi.Task, MlflowTaskProtocol[_TReq], metaclass=MlflowTaskMeta):
     """
     This is a luigi's task aiming to save artifacts and/or metrics to an mllfow expriment.
     """
@@ -104,7 +105,7 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[T], metaclass=MlflowTaskMeta[T])
 
     @classmethod
     @final
-    def get_protocols(cls) -> list[Protocol]:
+    def get_protocols(cls) -> list[type["MlflowTaskProtocol"]]:
         return cls.protocols
 
     @classmethod
@@ -141,7 +142,7 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[T], metaclass=MlflowTaskMeta[T])
         return super(MlflowTask, self).input()
 
     @final
-    def requires(self) -> T:
+    def requires(self) -> _TReq:
         """
         :return: A dictionary consisting of {task_name: task}
         """
@@ -277,7 +278,8 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[T], metaclass=MlflowTaskMeta[T])
                         m = hashlib.md5()
                         for task in t:
                             task = cast(MlflowTask, task)
-                            m.update(task.to_mlflow_tags_w_parent_tags()["_hash"].encode("utf-8"))
+                            hash_val = str(task.to_mlflow_tags_w_parent_tags()["_hash"])
+                            m.update(hash_val.encode("utf-8"))
                         t_tags_w_prefix = {f"{task_name}_hash": m.hexdigest()}
                     else:
                         t_tags_w_prefix = dict()
@@ -333,8 +335,7 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[T], metaclass=MlflowTaskMeta[T])
                             save_fn(artifact, out_path)
                         else:
                             assert callable(tup_or_fn)
-                            save_fn = tup_or_fn
-                            save_fn(out_path)
+                            tup_or_fn(out_path)
                         artifact_paths.append(out_path)
                     for path in artifact_paths:
                         mlflow.log_artifact(path)

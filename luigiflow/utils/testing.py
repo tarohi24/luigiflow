@@ -10,6 +10,7 @@ import socket
 import subprocess
 import time
 from collections import namedtuple
+from typing import cast
 
 from luigiflow.serializer import MlflowTagValue
 
@@ -81,8 +82,8 @@ def assert_two_tags_equal_wo_hashes(a: dict[str, MlflowTagValue], b: dict[str, M
     for key in keys:
         if key.endswith("_hash"):
             assert isinstance(a[key], str)
-            assert len(a[key]) > 0
+            assert len(cast(str, a[key])) > 0
             assert isinstance(b[key], str)
-            assert len(b[key]) > 0
+            assert len(cast(str, b[key])) > 0
         else:
             assert a[key] == b[key]

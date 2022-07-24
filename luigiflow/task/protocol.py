@@ -8,12 +8,12 @@ from mlflow.protos.service_pb2 import RunStatus, ACTIVE_ONLY
 from luigiflow.serializer import MlflowTagSerializer, MlflowTagValue
 
 
-T = TypeVar("T", bound=dict, covariant=True)  # to denote the type of `task.requires()`
+_TReq = TypeVar("_TReq", bound=dict, covariant=True)  # to denote the type of `task.requires()`
 K = TypeVar("K")  # for `save_artifacts`
 
 
 @runtime_checkable
-class MlflowTaskProtocol(Protocol[T]):
+class MlflowTaskProtocol(Protocol[_TReq]):
     """
     You can use this protocol to implement task protocols.
     Because a protocol class cannot inherit from non-protocol classes,
@@ -46,7 +46,7 @@ class MlflowTaskProtocol(Protocol[T]):
     def input(self) -> dict[str, dict[str, LocalTarget]]:
         ...
 
-    def requires(self) -> T:
+    def requires(self) -> _TReq:
         ...
 
     def to_mlflow_tags(self) -> dict[str, MlflowTagValue]:
