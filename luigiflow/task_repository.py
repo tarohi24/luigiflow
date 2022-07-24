@@ -1,13 +1,10 @@
 from dataclasses import dataclass, field
-from typing import Any, Optional, Protocol, Union, cast
+from typing import Any, Union, cast
 
 from luigiflow.serializer import DESERIALIZERS
-from luigiflow.task import (
-    MlflowTask,
-    MlflowTaskProtocol,
-    TaskImplementationList,
-    TaskList,
-)
+from luigiflow.task.protocol import MlflowTaskProtocol
+from luigiflow.task.task import MlflowTask
+from luigiflow.task.task_types import TaskList, TaskImplementationList
 from luigiflow.types import TaskParameter
 
 

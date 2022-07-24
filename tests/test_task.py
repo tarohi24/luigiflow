@@ -2,7 +2,6 @@ import datetime
 import json
 import pickle
 from typing import NoReturn, Optional, cast
-from unittest import TestCase
 
 import luigi
 import pandas as pd
@@ -11,14 +10,8 @@ from luigi import LocalTarget
 
 from luigiflow.config import RunnerConfig
 from luigiflow.runner import Runner
-from luigiflow.task import (
-    MlflowTask,
-    MlflowTaskProtocol,
-    OptionalTask,
-    TaskConfig,
-    TaskList,
-    TryingToSaveUndefinedArtifact,
-)
+from luigiflow.task.protocol import MlflowTaskProtocol
+from luigiflow.task.task import MlflowTask, TaskConfig
 from luigiflow.task_repository import TaskRepository
 from luigiflow.types import TaskParameter
 from luigiflow.utils.savers import save_dataframe, save_json, save_pickle
@@ -250,7 +243,6 @@ def test_save_artifacts(artifacts_server):
         task_params={
             "cls": "Task",
         },
-        protocol="DummyProtocol",
     )
     assert task.output() is None
     task.run()

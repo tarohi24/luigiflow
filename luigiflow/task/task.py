@@ -28,13 +28,8 @@ from tqdm.auto import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
 from luigiflow.serializer import MlflowTagSerializer, MlflowTagValue, default_serializer
-from luigiflow.task import (
-    MlflowTaskProtocol,
-    OptionalTask,
-    RequirementProtocol,
-    TaskImplementationList,
-    TaskList,
-)
+from luigiflow.task.protocol import MlflowTaskProtocol
+from luigiflow.task.task_types import TaskImplementationList, RequirementProtocol, OptionalTask, TaskList
 
 T = TypeVar("T", bound=MlflowTaskProtocol)
 _TReq = TypeVar("_TReq", bound=dict)
