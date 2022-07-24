@@ -4,20 +4,37 @@ import os
 import tempfile
 from operator import itemgetter
 from pathlib import Path
-from typing import Generic, Protocol, Any, final, NoReturn, Optional, Union, Callable, TypeVar, cast
+from typing import (
+    Any,
+    Callable,
+    Generic,
+    NoReturn,
+    Optional,
+    Protocol,
+    TypeVar,
+    Union,
+    cast,
+    final,
+)
 
 import luigi
 import mlflow
 from luigi import LocalTarget
 from luigi.task_register import Register
-from mlflow.entities import Run, Experiment, RunInfo
-from mlflow.protos.service_pb2 import RunStatus, ACTIVE_ONLY
+from mlflow.entities import Experiment, Run, RunInfo
+from mlflow.protos.service_pb2 import ACTIVE_ONLY, RunStatus
 from pydantic import BaseModel, Extra, Field
 from tqdm.auto import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
-from luigiflow.serializer import MlflowTagSerializer, default_serializer, MlflowTagValue
-from luigiflow.task import MlflowTaskProtocol, RequirementProtocol, OptionalTask, TaskList, TaskImplementationList
+from luigiflow.serializer import MlflowTagSerializer, MlflowTagValue, default_serializer
+from luigiflow.task import (
+    MlflowTaskProtocol,
+    OptionalTask,
+    RequirementProtocol,
+    TaskImplementationList,
+    TaskList,
+)
 
 T = TypeVar("T", bound=MlflowTaskProtocol)
 _TReq = TypeVar("_TReq", bound=dict)
@@ -36,7 +53,9 @@ class TaskConfig(BaseModel, extra=Extra.forbid):
 
 
 class MlflowTaskMeta(Register, Generic[_TReq], type(Protocol)):  # type: ignore[misc]
-    def __new__(mcs, classname: str, bases: tuple[type, ...], namespace: dict[str, Any]):
+    def __new__(
+        mcs, classname: str, bases: tuple[type, ...], namespace: dict[str, Any]
+    ):
         cls = super(MlflowTaskMeta, mcs).__new__(mcs, classname, bases, namespace)
         try:
             config: TaskConfig = namespace["config"]
@@ -61,7 +80,9 @@ class MlflowTaskMeta(Register, Generic[_TReq], type(Protocol)):  # type: ignore[
         cls.tags_to_exclude = config.tags_to_exclude
         cls.artifact_filenames = config.artifact_filenames
         cls.param_types = {
-            key: type(maybe_param) for key, maybe_param in namespace.items() if isinstance(maybe_param, luigi.Parameter)
+            key: type(maybe_param)
+            for key, maybe_param in namespace.items()
+            if isinstance(maybe_param, luigi.Parameter)
         }
         cls.disable_instance_cache()
         return cls
@@ -80,7 +101,9 @@ class MlflowTaskMeta(Register, Generic[_TReq], type(Protocol)):  # type: ignore[
         instance.requirements_impl = dict()
         for key, maybe_impl in requirements_impl.items():
             if maybe_impl is None:
-                assert not cls.requirements_required[key], f"{key} requires requirements"
+                assert not cls.requirements_required[
+                    key
+                ], f"{key} requires requirements"
                 instance.requirements_impl[key] = None
             elif isinstance(maybe_impl, list):
                 # list of classes
@@ -89,7 +112,13 @@ class MlflowTaskMeta(Register, Generic[_TReq], type(Protocol)):  # type: ignore[
             else:
                 instance.requirements_impl[key] = maybe_impl
         # renew task_id to distinguish tasks with the same params but different requirements
-        instance.task_id += "-".join([req.task_id for req in instance.requirements_impl.values() if req is not None])
+        instance.task_id += "-".join(
+            [
+                req.task_id
+                for req in instance.requirements_impl.values()
+                if req is not None
+            ]
+        )
         return instance
 
 
@@ -187,7 +216,9 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[_TReq], metaclass=MlflowTaskMeta
         """
         Search an existing run with the same tags.
         """
-        experiment: Optional[Experiment] = mlflow.get_experiment_by_name(self.get_experiment_name())
+        experiment: Optional[Experiment] = mlflow.get_experiment_by_name(
+            self.get_experiment_name()
+        )
         if experiment is None:
             return None
         # query_items = [f'tag.{pname} = "{pval}"' for pname, pval in ]
@@ -241,7 +272,8 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[_TReq], metaclass=MlflowTaskMeta
         if maybe_mlf_run is None:
             return None
         paths = {
-            key: Path(maybe_mlf_run.info.artifact_uri) / fname for key, fname in self.get_artifact_filenames().items()
+            key: Path(maybe_mlf_run.info.artifact_uri) / fname
+            for key, fname in self.get_artifact_filenames().items()
         }
         # logging
         return {key: LocalTarget(str(p)) for key, p in paths.items()}
@@ -255,7 +287,9 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[_TReq], metaclass=MlflowTaskMeta
 
         def to_tags(task: MlflowTask) -> dict[str, MlflowTagValue]:
             tags = task.to_mlflow_tags()
-            maybe_requirements: Optional[dict[str, MlflowTaskProtocol]] = task.requires()
+            maybe_requirements: Optional[
+                dict[str, MlflowTaskProtocol]
+            ] = task.requires()
             if maybe_requirements is None:
                 return tags
             else:
@@ -264,15 +298,23 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[_TReq], metaclass=MlflowTaskMeta
             parent_tasks: dict[str, MlflowTask | TaskImplementationList] = {
                 key: val
                 for key, val in maybe_requirements.items()
-                if (isinstance(val, MlflowTask) or isinstance(val, TaskImplementationList))
+                if (
+                    isinstance(val, MlflowTask)
+                    or isinstance(val, TaskImplementationList)
+                )
             }
             for task_name, t in parent_tasks.items():
                 if isinstance(t, MlflowTask):
-                    parent_tags: dict[str, MlflowTagValue] = t.to_mlflow_tags_w_parent_tags()
+                    parent_tags: dict[
+                        str, MlflowTagValue
+                    ] = t.to_mlflow_tags_w_parent_tags()
                     if len(parent_tags) > 100:
                         t_tags_w_prefix = {f"{task_name}_hash": parent_tags["_hash"]}
                     else:
-                        t_tags_w_prefix = {f"{task_name}.{key}": val for key, val in parent_tags.items()}
+                        t_tags_w_prefix = {
+                            f"{task_name}.{key}": val
+                            for key, val in parent_tags.items()
+                        }
                 elif isinstance(t, TaskImplementationList):
                     if len(t) > 100:
                         m = hashlib.md5()
@@ -286,10 +328,13 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[_TReq], metaclass=MlflowTaskMeta
                         for i, task in enumerate(t):
                             ctags = task.to_mlflow_tags_w_parent_tags()
                             if len(ctags) > 100:
-                                t_tags_w_prefix = t_tags_w_prefix | {f"{task_name}.{i}_hash": ctags["_hash"]}
+                                t_tags_w_prefix = t_tags_w_prefix | {
+                                    f"{task_name}.{i}_hash": ctags["_hash"]
+                                }
                             else:
                                 t_tags_w_prefix = t_tags_w_prefix | {
-                                    f"{task_name}.{i}.{key}": val for key, val in ctags.items()
+                                    f"{task_name}.{i}.{key}": val
+                                    for key, val in ctags.items()
                                 }
                 else:
                     raise AssertionError()
@@ -309,7 +354,9 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[_TReq], metaclass=MlflowTaskMeta
     @final
     def save_to_mlflow(
         self,
-        artifacts_and_save_funcs: dict[str, Union[Callable[[str], None], tuple[K, Callable[[K, str], None]]]] = None,
+        artifacts_and_save_funcs: dict[
+            str, Union[Callable[[str], None], tuple[K, Callable[[K, str], None]]]
+        ] = None,
         metrics: dict[str, float] = None,
         inherit_parent_tags: bool = True,
     ):
@@ -341,9 +388,13 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[_TReq], metaclass=MlflowTaskMeta
                         mlflow.log_artifact(path)
             # Save tags
             tags_dict: dict[str, Any] = (
-                self.to_mlflow_tags_w_parent_tags() if inherit_parent_tags else self.to_mlflow_tags()
+                self.to_mlflow_tags_w_parent_tags()
+                if inherit_parent_tags
+                else self.to_mlflow_tags()
             )
-            tags: list[tuple[str, Any]] = list([(key, val) for key, val in tags_dict.items()])
+            tags: list[tuple[str, Any]] = list(
+                [(key, val) for key, val in tags_dict.items()]
+            )
             n_tags = len(tags)
             start_pos = list(range(0, n_tags, 50))
             end_pos = start_pos[1:] + [n_tags]

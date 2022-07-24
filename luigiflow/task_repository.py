@@ -1,8 +1,13 @@
 from dataclasses import dataclass, field
-from typing import Protocol, Any, Union, Optional, cast
+from typing import Any, Optional, Protocol, Union, cast
 
 from luigiflow.serializer import DESERIALIZERS
-from luigiflow.task import MlflowTask, MlflowTaskProtocol, TaskImplementationList, TaskList
+from luigiflow.task import (
+    MlflowTask,
+    MlflowTaskProtocol,
+    TaskImplementationList,
+    TaskList,
+)
 from luigiflow.types import TaskParameter
 
 
@@ -22,10 +27,14 @@ class UnknownParameter(Exception):
     ...
 
 
-def _deserialize_params(params: dict[str, Any], task_cls: type[MlflowTask]) -> dict[str, Any]:
+def _deserialize_params(
+    params: dict[str, Any], task_cls: type[MlflowTask]
+) -> dict[str, Any]:
     param_types = task_cls.param_types
     try:
-        deserializers = {key: DESERIALIZERS[param_types[key].__name__] for key in params.keys()}
+        deserializers = {
+            key: DESERIALIZERS[param_types[key].__name__] for key in params.keys()
+        }
     except KeyError as e:
         raise UnknownParameter(str(e))
     return {key: deserializers[key](str(val)) for key, val in params.items()}
@@ -34,12 +43,16 @@ def _deserialize_params(params: dict[str, Any], task_cls: type[MlflowTask]) -> d
 @dataclass
 class ProtocolRepositoryItem:
     protocol_type: type[MlflowTaskProtocol]
-    _task_class_dict: dict[str, type[MlflowTask]] = field(init=False, default_factory=dict)
+    _task_class_dict: dict[str, type[MlflowTask]] = field(
+        init=False, default_factory=dict
+    )
 
     def register(self, task_class: type[MlflowTask]):
         key = task_class.__name__
         if key in self._task_class_dict:
-            raise TaskWithTheSameNameAlreadyRegistered(f"{key} already registered in {self.protocol_type}")
+            raise TaskWithTheSameNameAlreadyRegistered(
+                f"{key} already registered in {self.protocol_type}"
+            )
         self._task_class_dict[key] = task_class
 
     def get(self, task_name: str) -> type[MlflowTask]:
@@ -75,7 +88,9 @@ class TaskRepository:
         task_params: TaskParameter,
         protocol: Union[str, type[MlflowTaskProtocol]],
     ) -> MlflowTask:
-        protocol_name: str = protocol if isinstance(protocol, str) else protocol.__name__
+        protocol_name: str = (
+            protocol if isinstance(protocol, str) else protocol.__name__
+        )
         cls_name = task_params["cls"]
         try:
             protocol_item = self._protocols[protocol_name]
@@ -87,16 +102,22 @@ class TaskRepository:
             task_cls=task_cls,
         )
         # resolve requirements
-        requirements: dict[str, type[MlflowTaskProtocol] | TaskList] = task_cls.requirements
+        requirements: dict[
+            str, type[MlflowTaskProtocol] | TaskList
+        ] = task_cls.requirements
         requirements_required: dict[str, bool] = task_cls.requirements_required
-        requirements_impl: dict[str, Union[MlflowTask, TaskImplementationList, None]] = dict()
+        requirements_impl: dict[
+            str, Union[MlflowTask, TaskImplementationList, None]
+        ] = dict()
         if len(requirements) == 0:
             assert "requires" not in task_params
         else:
             assert "requires" in task_params
             # resolve its dependency
             for key, task_type in requirements.items():
-                maybe_task_param: dict | list[dict] | None = task_params["requires"][key]
+                maybe_task_param: dict | list[dict] | None = task_params["requires"][
+                    key
+                ]
                 if maybe_task_param is None:
                     assert not requirements_required[key], f"{key} is required"
                     requirements_impl[key] = None

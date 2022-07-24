@@ -1,17 +1,23 @@
 import json
 from pathlib import Path
-from typing import Protocol, NoReturn, runtime_checkable, TypedDict, Optional, cast
+from typing import NoReturn, Optional, Protocol, TypedDict, cast, runtime_checkable
 
 import luigi
 import pytest
 
 from luigiflow.config import RunnerConfig
 from luigiflow.runner import Runner
-from luigiflow.task import MlflowTask, TaskConfig, MlflowTaskProtocol, OptionalTask, TaskList
+from luigiflow.task import (
+    MlflowTask,
+    MlflowTaskProtocol,
+    OptionalTask,
+    TaskConfig,
+    TaskList,
+)
 from luigiflow.task_repository import (
+    ProtocolNotRegistered,
     TaskRepository,
     TaskWithTheSameNameAlreadyRegistered,
-    ProtocolNotRegistered,
 )
 from luigiflow.utils.savers import save_json
 

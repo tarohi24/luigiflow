@@ -49,7 +49,9 @@ class Runner:
             if self.config.create_experiment_if_not_existing:
                 mlflow.create_experiment(experiment_name)
             else:
-                raise ValueError(f"Experiment {experiment_name} not found at {self.config.mlflow_tracking_uri}")
+                raise ValueError(
+                    f"Experiment {experiment_name} not found at {self.config.mlflow_tracking_uri}"
+                )
         if dry_run:
             return task, None
         res = luigi.build(

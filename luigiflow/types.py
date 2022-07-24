@@ -1,4 +1,4 @@
-from typing import TypedDict, Any, Union
+from typing import Any, TypedDict, Union
 
 
 # set `total=False` because `requires` is optional

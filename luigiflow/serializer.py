@@ -1,6 +1,6 @@
 import datetime
 from dataclasses import dataclass
-from typing import Any, Callable, TypeVar, Union, cast, Optional, Generic
+from typing import Any, Callable, Generic, Optional, TypeVar, Union, cast
 
 MlflowTagValue = Union[str, int, float]
 T = TypeVar("T")
@@ -42,12 +42,16 @@ default_serializer: MlflowTagSerializer = MlflowTagSerializer(
         _Serializer[int](int, identical_function),
         _Serializer[float](float, identical_function),
         _Serializer[bool](bool, lambda b: int(b)),
-        _Serializer[datetime.date](datetime.date, lambda d: cast(datetime.date, d).isoformat()),
+        _Serializer[datetime.date](
+            datetime.date, lambda d: cast(datetime.date, d).isoformat()
+        ),
     ]
 )
 
 
-def get_optional_serializer(serializer: Callable[[str], T]) -> Callable[[str], Optional[T]]:
+def get_optional_serializer(
+    serializer: Callable[[str], T]
+) -> Callable[[str], Optional[T]]:
     def fn(s: str) -> Optional[T]:
         if s == "null":
             return None

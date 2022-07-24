@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Protocol, Generic, Callable, Iterator, Union, Any, TypeVar
+from typing import Any, Callable, Generic, Iterator, Protocol, TypeVar, Union
 
 import luigi
 from luigi.task_register import Register
@@ -36,20 +36,28 @@ RequirementProtocol = Union[type[MlflowTaskProtocol], OptionalTask, TaskList]
 
 
 class TaskImplementationListMeta(Register, Generic[_TT]):
-    def __new__(mcs, classname: str, bases: tuple[type, ...], namespace: dict[str, Any]):
-        cls = super(TaskImplementationListMeta, mcs).__new__(mcs, classname, bases, namespace)
+    def __new__(
+        mcs, classname: str, bases: tuple[type, ...], namespace: dict[str, Any]
+    ):
+        cls = super(TaskImplementationListMeta, mcs).__new__(
+            mcs, classname, bases, namespace
+        )
         cls.disable_instance_cache()
         return cls
 
     def __call__(cls, implementations: list[_TT], *args, **kwargs):
         instance = super(TaskImplementationListMeta, cls).__call__(*args, **kwargs)
         instance.implementations = implementations
-        instance.task_id = instance.task_id + "-".join([req.get_task_id() for req in implementations])
+        instance.task_id = instance.task_id + "-".join(
+            [req.get_task_id() for req in implementations]
+        )
         return instance
 
 
 @dataclass(init=False)
-class TaskImplementationList(Generic[_TT], luigi.Task, metaclass=TaskImplementationListMeta):
+class TaskImplementationList(
+    Generic[_TT], luigi.Task, metaclass=TaskImplementationListMeta
+):
     implementations: list[_TT]
 
     def requires(self) -> list[_TT]:
@@ -68,7 +76,9 @@ class TaskImplementationList(Generic[_TT], luigi.Task, metaclass=TaskImplementat
     def apply(self, fn: Callable[..., K], **kwargs) -> list[K]:
         # Note that `fn` itself is not applied. Only its name is used.
         # So you can pass methods of protocols
-        callables: list[Callable] = [getattr(impl, fn.__name__) for impl in self.implementations]
+        callables: list[Callable] = [
+            getattr(impl, fn.__name__) for impl in self.implementations
+        ]
         assert all(callable(maybe_callable) for maybe_callable in callables)
         return [cb(**kwargs) for cb in callables]
 

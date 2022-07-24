@@ -1,14 +1,15 @@
 import logging
-from typing import runtime_checkable, Protocol, Optional, Union, Callable, TypeVar
+from typing import Callable, Optional, Protocol, TypeVar, Union, runtime_checkable
 
 from luigi import LocalTarget
 from mlflow.entities import Run
-from mlflow.protos.service_pb2 import RunStatus, ACTIVE_ONLY
+from mlflow.protos.service_pb2 import ACTIVE_ONLY, RunStatus
 
 from luigiflow.serializer import MlflowTagSerializer, MlflowTagValue
 
-
-_TReq = TypeVar("_TReq", bound=dict, covariant=True)  # to denote the type of `task.requires()`
+_TReq = TypeVar(
+    "_TReq", bound=dict, covariant=True
+)  # to denote the type of `task.requires()`
 K = TypeVar("K")  # for `save_artifacts`
 
 
@@ -55,7 +56,9 @@ class MlflowTaskProtocol(Protocol[_TReq]):
     def run(self):
         ...
 
-    def search_for_mlflow_run(self, view_type: RunStatus = ACTIVE_ONLY) -> Optional[Run]:
+    def search_for_mlflow_run(
+        self, view_type: RunStatus = ACTIVE_ONLY
+    ) -> Optional[Run]:
         ...
 
     def complete(self):
@@ -69,7 +72,9 @@ class MlflowTaskProtocol(Protocol[_TReq]):
 
     def save_to_mlflow(
         self,
-        artifacts_and_save_funcs: dict[str, Union[Callable[[str], None], tuple[K, Callable[[K, str], None]]]] = None,
+        artifacts_and_save_funcs: dict[
+            str, Union[Callable[[str], None], tuple[K, Callable[[K, str], None]]]
+        ] = None,
         metrics: dict[str, float] = None,
         inherit_parent_tags: bool = True,
     ):

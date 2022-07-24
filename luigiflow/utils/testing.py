@@ -50,7 +50,9 @@ def _await_server_up_or_die(port, timeout=60):
             print("Server not yet up, waiting...")
             time.sleep(0.5)
     if not connected:
-        raise Exception("Failed to connect on %s:%s after %s seconds" % (LOCALHOST, port, timeout))
+        raise Exception(
+            "Failed to connect on %s:%s after %s seconds" % (LOCALHOST, port, timeout)
+        )
     print("Server is up on %s:%s!" % (LOCALHOST, port))
 
 
@@ -76,7 +78,9 @@ def launch_mlflow_server(host, port, backend_store_uri, default_artifact_root):
     return process
 
 
-def assert_two_tags_equal_wo_hashes(a: dict[str, MlflowTagValue], b: dict[str, MlflowTagValue]):
+def assert_two_tags_equal_wo_hashes(
+    a: dict[str, MlflowTagValue], b: dict[str, MlflowTagValue]
+):
     assert set(a.keys()) == set(b.keys())
     keys = set(a.keys())
     for key in keys:

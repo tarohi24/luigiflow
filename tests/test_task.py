@@ -13,15 +13,15 @@ from luigiflow.config import RunnerConfig
 from luigiflow.runner import Runner
 from luigiflow.task import (
     MlflowTask,
-    TaskConfig,
-    TryingToSaveUndefinedArtifact,
     MlflowTaskProtocol,
-    TaskList,
     OptionalTask,
+    TaskConfig,
+    TaskList,
+    TryingToSaveUndefinedArtifact,
 )
 from luigiflow.task_repository import TaskRepository
 from luigiflow.types import TaskParameter
-from luigiflow.utils.savers import save_dataframe, save_pickle, save_json
+from luigiflow.utils.savers import save_dataframe, save_json, save_pickle
 from luigiflow.utils.testing import assert_two_tags_equal_wo_hashes
 
 
@@ -34,7 +34,9 @@ def test_to_mlflow_tags(monkeypatch):
         param_int: int = luigi.IntParameter(default=10)
         param_str: str = luigi.Parameter(default="hi")
         param_bool: str = luigi.BoolParameter(default=True)
-        param_date: datetime.date = luigi.DateParameter(default=datetime.date(2021, 1, 2))
+        param_date: datetime.date = luigi.DateParameter(
+            default=datetime.date(2021, 1, 2)
+        )
         param_large_value: float = luigi.FloatParameter(default=2e11)
         config = TaskConfig(
             protocols=[
@@ -540,7 +542,7 @@ def test_hash_of_nested_requirements(artifacts_server):
                                 },
                             }
                         ]
-                    }
+                    },
                 }
             ]
         },
@@ -559,4 +561,3 @@ def test_hash_of_nested_requirements(artifacts_server):
     )
     hash_after = cast(MlflowTask, task).to_mlflow_tags_w_parent_tags()["a.0._hash"]
     assert hash_before != hash_after
-
