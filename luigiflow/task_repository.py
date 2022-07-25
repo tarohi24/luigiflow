@@ -120,7 +120,8 @@ class TaskRepository:
             str, Union[MlflowTask, TaskImplementationList, None]
         ] = dict()
         if len(requirements) == 0:
-            assert "requires" not in task_params
+            if (req := task_params.get("requires", None)) is not None:
+                assert len(req) == 0
         else:
             assert "requires" in task_params
             # resolve its dependency
