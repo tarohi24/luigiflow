@@ -233,7 +233,6 @@ def test_too_many_tags(artifacts_server, tmpdir):
             fout,
         )
     task, res = runner.run(
-        protocol_name="AnotherProtocol",
         config_jsonnet_path=config_path,
         dry_run=False,
     )
@@ -348,7 +347,6 @@ def test_allow_null_requirements(artifacts_server, tmpdir, maybe_task, config, i
         json.dump(config, fout)
     if is_ok:
         task, res = runner.run(
-            protocol_name="AnotherProtocol",
             config_jsonnet_path=config_path,
             dry_run=False,
         )
@@ -356,7 +354,6 @@ def test_allow_null_requirements(artifacts_server, tmpdir, maybe_task, config, i
     else:
         with pytest.raises(AssertionError):
             runner.run(
-                protocol_name="AnotherProtocol",
                 config_jsonnet_path=config_path,
                 dry_run=False,
             )
@@ -473,7 +470,6 @@ def test_list_requirements(artifacts_server, tmpdir):
         ),
     )
     task, res = runner.run(
-        protocol_name="AnotherProtocol",
         config_jsonnet_path=config_path,
         dry_run=False,
     )

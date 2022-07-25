@@ -140,7 +140,7 @@ def sample_task_param_path(tmpdir) -> Path:
 
 
 def test_run_with_single_param(runner, sample_task_param_path):
-    task, res = runner.run("SaveJson", sample_task_param_path)
+    task, res = runner.run(sample_task_param_path)
     assert isinstance(task, TaskB)
     assert res.status == LuigiStatusCode.SUCCESS
     assert task.int_value == 1
@@ -149,7 +149,6 @@ def test_run_with_single_param(runner, sample_task_param_path):
 
 def test_dry_run(runner, sample_task_param_path):
     task, res = runner.run(
-        protocol_name="SaveJson",
         config_jsonnet_path=sample_task_param_path,
         dry_run=True,
     )

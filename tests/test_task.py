@@ -360,7 +360,6 @@ def test_to_mlflow_tags_with_non_mlflow_task_requirements(tmpdir, artifacts_serv
         ),
     )
     task, _ = runner.run(
-        protocol_name="DummyProtocol",
         config_jsonnet_path=config_path,
         dry_run=True,
     )
@@ -429,7 +428,6 @@ def test_too_many_mlflow_tags(artifacts_server):
         },
     }
     task, _ = runner.run_with_task_param(
-        protocol_name="DummyProtocol",
         task_param=task_param,
         dry_run=True,
     )
@@ -448,7 +446,6 @@ def test_too_many_mlflow_tags(artifacts_server):
 
     task_param["requires"]["a"][0]["params"]["value"] = 1  # modify
     task, _ = runner.run_with_task_param(
-        protocol_name="DummyProtocol",
         task_param=task_param,
         dry_run=True,
     )
@@ -473,7 +470,6 @@ def test_too_many_mlflow_tags(artifacts_server):
         },
     }
     task, _ = runner.run_with_task_param(
-        protocol_name="DummyProtocol",
         task_param=task_param,
         dry_run=True,
     )
@@ -541,14 +537,12 @@ def test_hash_of_nested_requirements(artifacts_server):
         },
     }
     task, _ = runner.run_with_task_param(
-        protocol_name="DummyProtocol",
         task_param=task_param,
         dry_run=True,
     )
     hash_before = cast(MlflowTask, task).to_mlflow_tags_w_parent_tags()["a.0._hash"]
     task_param["requires"]["a"][0]["requires"]["a"][0]["params"]["value"] = 2
     task, _ = runner.run_with_task_param(
-        protocol_name="DummyProtocol",
         task_param=task_param,
         dry_run=True,
     )
