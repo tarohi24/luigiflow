@@ -5,7 +5,7 @@ description = ""
 authors = ["Wataru Hirota <wataru@whiro.me>"]
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.11"
+python = ">=3.8,<3.12"
 luigi = "^3"
 mlflow = "^1"
 pandas = "^1"
