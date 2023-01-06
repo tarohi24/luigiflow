@@ -5,24 +5,27 @@ description = ""
 authors = ["Wataru Hirota <wataru@whiro.me>"]
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.12"
+python = ">=3.10,<3.12"
+pip = "*"
 luigi = "^3"
-mlflow = "^1"
+mlflow = "^2"
 pandas = "^1"
 tqdm = "^4"
-jsonnet = "^0.18"
+jsonnet = "^0"
 registrable = "^0.0.4"
 pydantic = "^1"
 typing-extensions = "^4"
+llvmlite="^0.39"  # need to specify a version
+numba="^0.56.4"
 
 [tool.poetry.dev-dependencies]
-pytest = "^7"
-isort = "^5"
-black = "22.6.0"
-mypy = "^0.971"
+pytest = "*"
+isort = "*"
+black = "*"
+mypy = "*"
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
+requires = ["poetry-core>=1.0.0", "cython>=0.29.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.black]
