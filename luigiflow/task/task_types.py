@@ -1,5 +1,14 @@
 from dataclasses import dataclass
-from typing import Any, Callable, Generic, Iterator, Protocol, TypeVar, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Generic,
+    Iterator,
+    Protocol,
+    TypeVar,
+    Union,
+)
 
 import luigi
 from luigi.task_register import Register
@@ -29,6 +38,8 @@ class TaskList(Generic[V]):
         raise NotImplementedError
 
     def __iter__(self) -> Iterator[V]:
+        if TYPE_CHECKING:
+            raise NotImplementedError
         ...  # Don't raise `NotImplementedError` because some pydantic methods may catch that exception.
 
 

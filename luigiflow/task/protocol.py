@@ -72,10 +72,10 @@ class MlflowTaskProtocol(Protocol[_TReq]):
 
     def save_to_mlflow(
         self,
-        artifacts_and_save_funcs: dict[
-            str, Union[Callable[[str], None], tuple[K, Callable[[K, str], None]]]
+        artifacts_and_save_funcs: Optional[
+            dict[str, Union[Callable[[str], None], tuple[K, Callable[[K, str], None]]]]
         ] = None,
-        metrics: dict[str, float] = None,
+        metrics: Optional[dict[str, float]] = None,
         inherit_parent_tags: bool = True,
     ):
         ...

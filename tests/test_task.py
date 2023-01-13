@@ -12,7 +12,7 @@ from luigiflow.config import RunnerConfig
 from luigiflow.runner import Runner
 from luigiflow.task.protocol import MlflowTaskProtocol
 from luigiflow.task.task import MlflowTask, TaskConfig, TryingToSaveUndefinedArtifact
-from luigiflow.task.task_types import TaskList, OptionalTask
+from luigiflow.task.task_types import OptionalTask, TaskList
 from luigiflow.task_repository import TaskRepository
 from luigiflow.types import TaskParameter
 from luigiflow.utils.savers import save_dataframe, save_json, save_pickle

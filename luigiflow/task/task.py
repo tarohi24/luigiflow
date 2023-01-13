@@ -29,7 +29,12 @@ from tqdm.contrib.logging import logging_redirect_tqdm
 
 from luigiflow.serializer import MlflowTagSerializer, MlflowTagValue, default_serializer
 from luigiflow.task.protocol import MlflowTaskProtocol
-from luigiflow.task.task_types import TaskImplementationList, RequirementProtocol, OptionalTask, TaskList
+from luigiflow.task.task_types import (
+    OptionalTask,
+    RequirementProtocol,
+    TaskImplementationList,
+    TaskList,
+)
 
 T = TypeVar("T", bound=MlflowTaskProtocol)
 _TReq = TypeVar("_TReq", bound=dict)
@@ -163,7 +168,7 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[_TReq], metaclass=MlflowTaskMeta
 
     # just to note types
     def input(self) -> dict[str, dict[str, LocalTarget]]:
-        return super(MlflowTask, self).input()
+        return super(MlflowTask, self).input()  # type: ignore[safe-super]
 
     @final
     def requires(self) -> _TReq:
@@ -191,7 +196,7 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[_TReq], metaclass=MlflowTaskMeta
         base["name"] = str(self.__class__.__name__)
         return base
 
-    def _run(self) -> NoReturn:
+    def _run(self) -> None:
         """
         Specify a flow to save artifacts / metrics.
         """
@@ -349,10 +354,10 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[_TReq], metaclass=MlflowTaskMeta
     @final
     def save_to_mlflow(
         self,
-        artifacts_and_save_funcs: dict[
-            str, Union[Callable[[str], None], tuple[K, Callable[[K, str], None]]]
+        artifacts_and_save_funcs: Optional[
+            dict[str, Union[Callable[[str], None], tuple[K, Callable[[K, str], None]]]]
         ] = None,
-        metrics: dict[str, float] = None,
+        metrics: Optional[dict[str, float]] = None,
         inherit_parent_tags: bool = True,
     ):
         """

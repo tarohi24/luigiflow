@@ -1,10 +1,10 @@
 from dataclasses import dataclass, field
-from typing import Any, Union, cast
+from typing import Any, Optional, Union, cast
 
 from luigiflow.serializer import DESERIALIZERS
 from luigiflow.task.protocol import MlflowTaskProtocol
 from luigiflow.task.task import MlflowTask
-from luigiflow.task.task_types import TaskList, TaskImplementationList
+from luigiflow.task.task_types import TaskImplementationList, TaskList
 from luigiflow.types import TaskParameter
 
 
@@ -83,7 +83,7 @@ class TaskRepository:
     def generate_task_tree(
         self,
         task_params: TaskParameter,
-        protocol: Union[str, type[MlflowTaskProtocol]] = None,
+        protocol: Optional[Union[str, type[MlflowTaskProtocol]]] = None,
     ) -> MlflowTask:
         if protocol is None:
             task_name: str = task_params["cls"]
@@ -98,9 +98,7 @@ class TaskRepository:
             else:
                 raise ValueError(f"Unknown task {task_name}")
         else:
-            protocol_name: str = (
-                protocol if isinstance(protocol, str) else protocol.__name__
-            )
+            protocol_name = protocol if isinstance(protocol, str) else protocol.__name__
         cls_name = task_params["cls"]
         try:
             protocol_item = self._protocols[protocol_name]
@@ -126,9 +124,7 @@ class TaskRepository:
             assert "requires" in task_params
             # resolve its dependency
             for key, task_type in requirements.items():
-                maybe_task_param: dict | list[dict] | None = task_params["requires"][
-                    key
-                ]
+                maybe_task_param = task_params["requires"][key]
                 if maybe_task_param is None:
                     assert not requirements_required[key], f"{key} is required"
                     requirements_impl[key] = None
