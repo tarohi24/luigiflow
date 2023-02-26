@@ -16,7 +16,7 @@ class _Serializer(Generic[T]):
 
 
 @dataclass
-class MlflowTagSerializer:
+class ParameterSerializer:
     # T isn't V because V is a value type, whereas T is a parameter
     # `serializers` is not a dict because the order matters.
     # e.g. a `datetime` is also a `date`. Then it has to prioritize the `datetime` serializer.
@@ -36,7 +36,7 @@ def identical_function(val: T) -> T:
     return val
 
 
-default_serializer: MlflowTagSerializer = MlflowTagSerializer(
+default_serializer: ParameterSerializer = ParameterSerializer(
     [
         _Serializer[str](str, identical_function),
         _Serializer[int](int, identical_function),

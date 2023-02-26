@@ -5,7 +5,7 @@ from luigi import LocalTarget
 from mlflow.entities import Run
 from mlflow.protos.service_pb2 import ACTIVE_ONLY, RunStatus
 
-from luigiflow.domain.serializer import MlflowTagSerializer, MlflowTagValue
+from luigiflow.domain.serializer import ParameterSerializer, MlflowTagValue
 
 _TReq = TypeVar(
     "_TReq", bound=dict, covariant=True
@@ -40,7 +40,7 @@ class MlflowTaskProtocol(Protocol[_TReq]):
         ...
 
     @classmethod
-    def get_tag_serializer(cls) -> MlflowTagSerializer:
+    def get_tag_serializer(cls) -> ParameterSerializer:
         ...
 
     # just to note types

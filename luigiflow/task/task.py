@@ -26,7 +26,7 @@ from pydantic import BaseModel, Extra, Field
 from tqdm.auto import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
-from luigiflow.domain.serializer import MlflowTagSerializer, MlflowTagValue, default_serializer
+from luigiflow.domain.serializer import ParameterSerializer, MlflowTagValue, default_serializer
 from luigiflow.task.protocol import MlflowTaskProtocol
 from luigiflow.task.task_types import (
     OptionalTask,
@@ -158,7 +158,7 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[_TReq], metaclass=MlflowTaskMeta
         return cls.artifact_filenames
 
     @classmethod
-    def get_tag_serializer(cls) -> MlflowTagSerializer:
+    def get_tag_serializer(cls) -> ParameterSerializer:
         """
         You normally don't need to override this method.
         :return:
