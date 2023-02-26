@@ -4,7 +4,7 @@ from typing import TypedDict, Any, Union
 from luigi import Parameter
 
 from luigiflow.domain.serializer import ParameterSerializer
-from luigiflow.domain.types import ParameterName, TagKey, TagValue, TaskClassName
+from luigiflow.types import ParameterName, TagKey, TagValue, TaskClassName
 
 
 @dataclass
