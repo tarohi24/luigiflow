@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Any, Optional, Union, cast
 
+from luigi import Parameter
+
 from luigiflow.domain.serializer import DESERIALIZERS
 from luigiflow.task.protocol import MlflowTaskProtocol
 from luigiflow.task.task import MlflowTask
@@ -25,9 +27,9 @@ class UnknownParameter(Exception):
 
 
 def _deserialize_params(
-    params: dict[str, Any], task_cls: type[MlflowTask]
+    params: dict[str, Any],
+    param_types: dict[str, type[Parameter]],
 ) -> dict[str, Any]:
-    param_types = task_cls.param_types
     try:
         deserializers = {
             key: DESERIALIZERS[param_types[key].__name__] for key in params.keys()
@@ -107,7 +109,7 @@ class TaskRepository:
         task_cls: type[MlflowTask] = protocol_item.get(cls_name)
         task_kwargs = _deserialize_params(
             params=task_params.get("params", dict()),  # allow empty params
-            task_cls=task_cls,
+            param_types=task_cls.tag_manager.params,
         )
         # resolve requirements
         requirements: dict[

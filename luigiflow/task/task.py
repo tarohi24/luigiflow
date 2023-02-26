@@ -81,13 +81,7 @@ class MlflowTaskMeta(Register, Generic[_TReq], type(Protocol)):  # type: ignore[
                 cls.requirements[key] = maybe_req_type
                 cls.requirements_required[key] = True
 
-        cls.tags_to_exclude = config.tags_to_exclude
         cls.artifact_filenames = config.artifact_filenames
-        cls.param_types = {
-            key: type(maybe_param)
-            for key, maybe_param in namespace.items()
-            if isinstance(maybe_param, luigi.Parameter)
-        }
         cls.tag_manager = TagManager(
             task_name=classname,
             params={
