@@ -8,7 +8,6 @@ from typing import (
     Any,
     Callable,
     Generic,
-    NoReturn,
     Optional,
     Protocol,
     TypeVar,
@@ -27,7 +26,7 @@ from pydantic import BaseModel, Extra, Field
 from tqdm.auto import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
-from luigiflow.serializer import MlflowTagSerializer, MlflowTagValue, default_serializer
+from luigiflow.domain.serializer import MlflowTagSerializer, MlflowTagValue, default_serializer
 from luigiflow.task.protocol import MlflowTaskProtocol
 from luigiflow.task.task_types import (
     OptionalTask,

@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Any, Optional, Union, cast
 
-from luigiflow.serializer import DESERIALIZERS
+from luigiflow.domain.serializer import DESERIALIZERS
 from luigiflow.task.protocol import MlflowTaskProtocol
 from luigiflow.task.task import MlflowTask
 from luigiflow.task.task_types import TaskImplementationList, TaskList

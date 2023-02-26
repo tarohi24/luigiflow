@@ -12,7 +12,7 @@ import time
 from collections import namedtuple
 from typing import cast
 
-from luigiflow.serializer import MlflowTagValue
+from luigiflow.domain.serializer import MlflowTagValue
 
 ArtifactsServer = namedtuple(
     "ArtifactsServer",

@@ -5,7 +5,7 @@ from luigi import LocalTarget
 from mlflow.entities import Run
 from mlflow.protos.service_pb2 import ACTIVE_ONLY, RunStatus
 
-from luigiflow.serializer import MlflowTagSerializer, MlflowTagValue
+from luigiflow.domain.serializer import MlflowTagSerializer, MlflowTagValue
 
 _TReq = TypeVar(
     "_TReq", bound=dict, covariant=True
