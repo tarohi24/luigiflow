@@ -139,6 +139,10 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[_TReq], metaclass=MlflowTaskMeta
     @classmethod
     @final
     def get_tags_to_exclude(cls) -> set[str]:
+        """
+        Deprecated
+        :return:
+        """
         return cls.tags_to_exclude
 
     @classmethod
@@ -178,6 +182,7 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[_TReq], metaclass=MlflowTaskMeta
 
     def to_mlflow_tags(self) -> dict[str, MlflowTagValue]:
         """
+        DEPRECATED
         Serialize parameters of this task.
         By default, this method serialize all the parameters.
 
