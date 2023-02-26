@@ -13,7 +13,7 @@ from luigiflow.domain.custom_params import (
 from luigiflow.task.protocol import MlflowTaskProtocol
 from luigiflow.task.task import MlflowTask, TaskConfig
 from luigiflow.domain.collection import UnknownParameter, TaskCollection
-from luigiflow.types import TaskParameter
+from luigiflow.domain.tag_param import TaskParameter
 
 
 class TaskProtocol(MlflowTaskProtocol):

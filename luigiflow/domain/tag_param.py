@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from typing import TypedDict, Any, Union
 
 from luigi import Parameter
 
@@ -36,3 +37,10 @@ class TagManager:
         }
         base["name"] = str(self.task_name)
         return base
+
+
+class TaskParameter(TypedDict, total=False):
+    cls: str  # either type or class is a reserved word, so I chose to use `cls`
+    params: dict[str, Any]
+    # ignore type errors. mypy doesn't support recursive types
+    requires: dict[str, Union["TaskParameter", list["TaskParameter"]]]  # type: ignore

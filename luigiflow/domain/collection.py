@@ -7,7 +7,7 @@ from luigiflow.domain.serializer import DESERIALIZERS
 from luigiflow.task.protocol import MlflowTaskProtocol
 from luigiflow.task.task import MlflowTask
 from luigiflow.task.task_types import TaskList, TaskImplementationList
-from luigiflow.types import TaskParameter
+from luigiflow.domain.tag_param import TaskParameter
 
 
 class TaskWithTheSameNameAlreadyRegistered(Exception):

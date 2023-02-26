@@ -31,7 +31,7 @@ from luigiflow.domain.serializer import (
     ParameterSerializer,
     default_serializer,
 )
-from luigiflow.domain.tag import TagManager
+from luigiflow.domain.tag_param import TagManager
 from luigiflow.task.protocol import MlflowTaskProtocol
 from luigiflow.task.task_types import (
     OptionalTask,

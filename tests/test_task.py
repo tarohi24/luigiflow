@@ -14,7 +14,7 @@ from luigiflow.task.protocol import MlflowTaskProtocol
 from luigiflow.task.task import MlflowTask, TaskConfig, TryingToSaveUndefinedArtifact
 from luigiflow.task.task_types import OptionalTask, TaskList
 from luigiflow.domain.collection import TaskCollection
-from luigiflow.types import TaskParameter
+from luigiflow.domain.tag_param import TaskParameter
 from luigiflow.utils.savers import save_dataframe, save_json, save_pickle
 from luigiflow.utils.testing import assert_two_tags_equal_wo_hashes
 

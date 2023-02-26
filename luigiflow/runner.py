@@ -10,7 +10,7 @@ from luigi.execution_summary import LuigiRunResult
 
 from luigiflow.config import RunnerConfig
 from luigiflow.domain.collection import TaskCollection
-from luigiflow.types import TaskParameter
+from luigiflow.domain.tag_param import TaskParameter
 
 RunReturn = tuple[luigi.Task, Optional[LuigiRunResult]]
 
