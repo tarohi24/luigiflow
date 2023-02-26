@@ -10,7 +10,7 @@ from luigi import LuigiStatusCode
 from luigiflow.config import RunnerConfig
 from luigiflow.runner import Runner
 from luigiflow.task.protocol import MlflowTaskProtocol
-from luigiflow.task.task import MlflowTask, TaskConfig
+from luigiflow.domain.task import MlflowTask, TaskConfig
 from luigiflow.domain.collection import TaskCollection
 from luigiflow.utils.savers import save_dataframe
 

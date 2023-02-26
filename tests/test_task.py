@@ -1,4 +1,3 @@
-import datetime
 import json
 import pickle
 from typing import NoReturn, Optional, cast
@@ -11,7 +10,7 @@ from luigi import LocalTarget
 from luigiflow.config import RunnerConfig
 from luigiflow.runner import Runner
 from luigiflow.task.protocol import MlflowTaskProtocol
-from luigiflow.task.task import MlflowTask, TaskConfig, TryingToSaveUndefinedArtifact
+from luigiflow.domain.task import MlflowTask, TaskConfig, TryingToSaveUndefinedArtifact
 from luigiflow.task.task_types import OptionalTask, TaskList
 from luigiflow.domain.collection import TaskCollection
 from luigiflow.domain.tag_param import TaskParameter

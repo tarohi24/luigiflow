@@ -11,7 +11,7 @@ from luigiflow.domain.custom_params import (
     OptionalStrParameter,
 )
 from luigiflow.task.protocol import MlflowTaskProtocol
-from luigiflow.task.task import MlflowTask, TaskConfig
+from luigiflow.domain.task import MlflowTask, TaskConfig
 from luigiflow.domain.collection import UnknownParameter, TaskCollection
 from luigiflow.domain.tag_param import TaskParameter
 

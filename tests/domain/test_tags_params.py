@@ -5,7 +5,7 @@ import luigi
 import pytest
 
 from luigiflow.task.protocol import MlflowTaskProtocol
-from luigiflow.task.task import MlflowTask, TaskConfig
+from luigiflow.domain.task import MlflowTask, TaskConfig
 from luigiflow.domain.collection import TaskCollection
 
 
