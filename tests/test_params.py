@@ -12,7 +12,7 @@ from luigiflow.domain.custom_params import (
 )
 from luigiflow.task.protocol import MlflowTaskProtocol
 from luigiflow.task.task import MlflowTask, TaskConfig
-from luigiflow.task_repository import TaskRepository, UnknownParameter
+from luigiflow.domain.collection import UnknownParameter, TaskCollection
 from luigiflow.types import TaskParameter
 
 
@@ -54,7 +54,7 @@ def test_serialize_date_param():
     # test default value
     task = cast(
         TaskA,
-        TaskRepository(
+        TaskCollection(
             [
                 TaskA,
             ]
@@ -65,7 +65,7 @@ def test_serialize_date_param():
     task_params["params"]["date_param"] = "2021-12-12"
     task = cast(
         TaskA,
-        TaskRepository(
+        TaskCollection(
             [
                 TaskA,
             ]
@@ -75,7 +75,7 @@ def test_serialize_date_param():
     # test with an invalid param
     task_params["params"]["date_param"] = "invalid"
     with pytest.raises(ValueError):
-        TaskRepository(
+        TaskCollection(
             [
                 TaskA,
             ]
@@ -84,7 +84,7 @@ def test_serialize_date_param():
 
 def test_inconsistent_param_name():
     with pytest.raises(UnknownParameter):
-        TaskRepository([TaskA,]).generate_task_tree(
+        TaskCollection([TaskA, ]).generate_task_tree(
             task_params={"cls": "TaskA", "params": {"unknown": "hi"}},
             protocol=TaskProtocol,
         )
@@ -110,7 +110,7 @@ def test_optional_param():
             "maybe_date": None,
         },
     }
-    task: Task = TaskRepository([Task]).generate_task_tree(  # type: ignore
+    task: Task = TaskCollection([Task]).generate_task_tree(  # type: ignore
         task_params=config,
         protocol=TaskProtocol,
     )
@@ -138,7 +138,7 @@ def test_optional_param():
             "maybe_value_default_none": 10,
         },
     }
-    task: Task = TaskRepository([Task]).generate_task_tree(  # type: ignore
+    task: Task = TaskCollection([Task]).generate_task_tree(  # type: ignore
         task_params=config,
         protocol=TaskProtocol,
     )

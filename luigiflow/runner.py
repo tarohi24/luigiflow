@@ -9,7 +9,7 @@ import mlflow
 from luigi.execution_summary import LuigiRunResult
 
 from luigiflow.config import RunnerConfig
-from luigiflow.task_repository import TaskRepository
+from luigiflow.domain.collection import TaskCollection
 from luigiflow.types import TaskParameter
 
 RunReturn = tuple[luigi.Task, Optional[LuigiRunResult]]
@@ -31,7 +31,7 @@ def _load_task_params(path: Path) -> TaskParameter:
 @dataclass
 class Runner:
     config: RunnerConfig
-    experiment_repository: TaskRepository
+    experiment_repository: TaskCollection
 
     def run_with_task_param(
         self,

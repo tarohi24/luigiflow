@@ -11,7 +11,7 @@ from luigiflow.config import RunnerConfig
 from luigiflow.runner import Runner
 from luigiflow.task.protocol import MlflowTaskProtocol
 from luigiflow.task.task import MlflowTask, TaskConfig
-from luigiflow.task_repository import TaskRepository
+from luigiflow.domain.collection import TaskCollection
 from luigiflow.utils.savers import save_dataframe
 
 
@@ -104,7 +104,7 @@ def runner(artifacts_server) -> Runner:
             use_local_scheduler=True,
             create_experiment_if_not_existing=True,
         ),
-        experiment_repository=TaskRepository(
+        experiment_repository=TaskCollection(
             task_classes=[TaskA, TaskB],
         ),
     )

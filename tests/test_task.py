@@ -13,7 +13,7 @@ from luigiflow.runner import Runner
 from luigiflow.task.protocol import MlflowTaskProtocol
 from luigiflow.task.task import MlflowTask, TaskConfig, TryingToSaveUndefinedArtifact
 from luigiflow.task.task_types import OptionalTask, TaskList
-from luigiflow.task_repository import TaskRepository
+from luigiflow.domain.collection import TaskCollection
 from luigiflow.types import TaskParameter
 from luigiflow.utils.savers import save_dataframe, save_json, save_pickle
 from luigiflow.utils.testing import assert_two_tags_equal_wo_hashes
@@ -89,7 +89,7 @@ def test_to_tags_w_parents(monkeypatch):
         def _run(self) -> NoReturn:
             ...
 
-    task_repo = TaskRepository(
+    task_repo = TaskCollection(
         task_classes=[TaskA, TaskB, TaskC, MainTask],
     )
     task_params = {
@@ -164,7 +164,7 @@ def test_save_artifacts(artifacts_server):
                 }
             )
 
-    task = TaskRepository([Task,]).generate_task_tree(
+    task = TaskCollection([Task, ]).generate_task_tree(
         task_params={
             "cls": "Task",
         },
@@ -200,7 +200,7 @@ def test_save_artifacts_but_files_are_mismatched(artifacts_server):
                 }
             )
 
-    task = TaskRepository([InvalidTask,]).generate_task_tree(
+    task = TaskCollection([InvalidTask, ]).generate_task_tree(
         task_params={"cls": "InvalidTask"},
         protocol=DummyProtocol,
     )
@@ -279,7 +279,7 @@ def test_to_mlflow_tags_with_non_mlflow_task_requirements(tmpdir, artifacts_serv
             use_local_scheduler=True,
             create_experiment_if_not_existing=True,
         ),
-        experiment_repository=TaskRepository(
+        experiment_repository=TaskCollection(
             task_classes=[TaskA, TaskB],
         ),
     )
@@ -330,7 +330,7 @@ def test_too_many_mlflow_tags(artifacts_server):
             use_local_scheduler=True,
             create_experiment_if_not_existing=True,
         ),
-        experiment_repository=TaskRepository(
+        experiment_repository=TaskCollection(
             task_classes=[TaskA, TaskB],
         ),
     )
@@ -430,7 +430,7 @@ def test_hash_of_nested_requirements(artifacts_server):
             use_local_scheduler=True,
             create_experiment_if_not_existing=True,
         ),
-        experiment_repository=TaskRepository(
+        experiment_repository=TaskCollection(
             task_classes=[TaskA, TaskB],
         ),
     )

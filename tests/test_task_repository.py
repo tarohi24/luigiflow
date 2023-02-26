@@ -10,11 +10,7 @@ from luigiflow.runner import Runner
 from luigiflow.task.protocol import MlflowTaskProtocol
 from luigiflow.task.task import MlflowTask, TaskConfig
 from luigiflow.task.task_types import OptionalTask, TaskList
-from luigiflow.task_repository import (
-    ProtocolNotRegistered,
-    TaskRepository,
-    TaskWithTheSameNameAlreadyRegistered,
-)
+from luigiflow.domain.collection import TaskWithTheSameNameAlreadyRegistered, ProtocolNotRegistered, TaskCollection
 from luigiflow.utils.savers import save_json
 
 
@@ -65,7 +61,7 @@ class NewTask(MlflowTask):
 
 def test_duplicated_tasks():
     with pytest.raises(TaskWithTheSameNameAlreadyRegistered):
-        TaskRepository(
+        TaskCollection(
             task_classes=[
                 DoNothingImpl,
                 DoNothingImpl,
@@ -87,7 +83,7 @@ def test_unknown_protocol():
             },
         )
 
-    repo = TaskRepository(
+    repo = TaskCollection(
         task_classes=[
             TaskHavingUnknownProtocol,
         ],
@@ -141,7 +137,7 @@ def test_recursively_nested_task(artifacts_server):
             artifact_filenames=dict(),
         )
 
-    repo = TaskRepository(
+    repo = TaskCollection(
         task_classes=[
             TaskA,
             TaskB,
@@ -210,7 +206,7 @@ def test_too_many_tags(artifacts_server, tmpdir):
             use_local_scheduler=True,
             create_experiment_if_not_existing=True,
         ),
-        experiment_repository=TaskRepository(
+        experiment_repository=TaskCollection(
             task_classes=[DoSomething, NewTask],
         ),
     )
@@ -335,7 +331,7 @@ def test_allow_null_requirements(artifacts_server, tmpdir, maybe_task, config, i
             use_local_scheduler=True,
             create_experiment_if_not_existing=True,
         ),
-        experiment_repository=TaskRepository(
+        experiment_repository=TaskCollection(
             task_classes=[TaskA, TaskB],
         ),
     )
@@ -465,7 +461,7 @@ def test_list_requirements(artifacts_server, tmpdir):
             use_local_scheduler=True,
             create_experiment_if_not_existing=True,
         ),
-        experiment_repository=TaskRepository(
+        experiment_repository=TaskCollection(
             task_classes=[TaskA, TaskB, TaskC],
         ),
     )

@@ -6,7 +6,7 @@ import pytest
 
 from luigiflow.task.protocol import MlflowTaskProtocol
 from luigiflow.task.task import MlflowTask, TaskConfig
-from luigiflow.task_repository import TaskRepository
+from luigiflow.domain.collection import TaskCollection
 
 
 class DummyProtocol(MlflowTaskProtocol):
@@ -45,7 +45,7 @@ class AnotherTask(MlflowTask):
 class TestToTags:
     @pytest.fixture()
     def task(self) -> Task:
-        repo = TaskRepository([Task])
+        repo = TaskCollection([Task])
         task = repo.generate_task_tree(
             task_params={
                 "cls": "Task",
@@ -79,7 +79,7 @@ class TestToTags:
         assert actual == expected
 
     def test_invalid_param_type(self):
-        repo = TaskRepository([Task])
+        repo = TaskCollection([Task])
         repo._protocols["DummyProtocol"].register(AnotherTask)
         task = repo.generate_task_tree(
             task_params={
