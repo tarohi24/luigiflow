@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from luigi import Parameter
 
 from luigiflow.domain.serializer import ParameterSerializer
-from luigiflow.domain.types import TaskClassName, ParameterName, TagKey, TagValue
+from luigiflow.domain.types import ParameterName, TagKey, TagValue, TaskClassName
 
 
 @dataclass
@@ -20,10 +20,18 @@ class TagManager:
     def param_name_to_tag_key(param_name: ParameterName) -> TagKey:
         return param_name
 
-    def to_mlflow_tags(self) -> dict[TagKey, TagValue]:
+    def to_mlflow_tags(
+        self, param_values: dict[ParameterName, TagValue]
+    ) -> dict[TagKey, TagValue]:
+        assert (
+            set(param_values.keys()) == set(self.params.keys()),
+            f"Expected {self.params.keys()}, but got {param_values.keys()}",
+        )
         base = {
-            self.param_name_to_tag_key(param_name=param_name): self.serializer.serialize(param)
-            for param_name, param in self.params
+            self.param_name_to_tag_key(
+                param_name=param_name
+            ): self.serializer.serialize(param)
+            for param_name, param in param_values.items()
             if param_name not in self.param_names_to_exclude_from_tags
         }
         base["name"] = str(self.task_name)

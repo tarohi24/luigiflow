@@ -17,9 +17,7 @@ class Task(MlflowTask):
     param_int: int = luigi.IntParameter(default=10)
     param_str: str = luigi.Parameter(default="hi")
     param_bool: str = luigi.BoolParameter(default=True)
-    param_date: datetime.date = luigi.DateParameter(
-        default=datetime.date(2021, 1, 2)
-    )
+    param_date: datetime.date = luigi.DateParameter(default=datetime.date(2021, 1, 2))
     param_large_value: float = luigi.FloatParameter(default=2e11)
     config = TaskConfig(
         protocols=[
@@ -45,7 +43,6 @@ class AnotherTask(MlflowTask):
 
 
 class TestToTags:
-
     @pytest.fixture()
     def task(self) -> Task:
         repo = TaskRepository([Task])
@@ -67,9 +64,9 @@ class TestToTags:
         }
         assert actual == expected
 
-    def test_if_tags_to_exclude_work(self, monkeypatch, task):
+    def test_if_tags_to_exclude_work(self, task):
         # disable `tags_to_exclude`
-        monkeypatch.setattr(Task, "tags_to_exclude", set())
+        task.tag_manager.param_names_to_exclude_from_tags = set()
         actual = task.to_mlflow_tags()
         expected = {
             "name": "Task",

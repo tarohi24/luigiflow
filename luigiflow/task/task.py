@@ -26,7 +26,12 @@ from pydantic import BaseModel, Extra, Field
 from tqdm.auto import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
-from luigiflow.domain.serializer import ParameterSerializer, MlflowTagValue, default_serializer
+from luigiflow.domain.serializer import (
+    MlflowTagValue,
+    ParameterSerializer,
+    default_serializer,
+)
+from luigiflow.domain.tag import TagManager
 from luigiflow.task.protocol import MlflowTaskProtocol
 from luigiflow.task.task_types import (
     OptionalTask,
@@ -83,6 +88,16 @@ class MlflowTaskMeta(Register, Generic[_TReq], type(Protocol)):  # type: ignore[
             for key, maybe_param in namespace.items()
             if isinstance(maybe_param, luigi.Parameter)
         }
+        cls.tag_manager = TagManager(
+            task_name=classname,
+            params={
+                name: type(maybe_param)
+                for name, maybe_param in namespace.items()
+                if isinstance(maybe_param, luigi.Parameter)
+            },
+            serializer=default_serializer,
+            param_names_to_exclude_from_tags=config.tags_to_exclude,
+        )
         cls.disable_instance_cache()
         return cls
 
@@ -143,7 +158,7 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[_TReq], metaclass=MlflowTaskMeta
         Deprecated
         :return:
         """
-        return cls.tags_to_exclude
+        return cls.tag_manager.get_param_names_not_to_tag()
 
     @classmethod
     @final
@@ -161,14 +176,6 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[_TReq], metaclass=MlflowTaskMeta
         """
         return cls.artifact_filenames
 
-    @classmethod
-    def get_tag_serializer(cls) -> ParameterSerializer:
-        """
-        You normally don't need to override this method.
-        :return:
-        """
-        return default_serializer
-
     # just to note types
     def input(self) -> dict[str, dict[str, LocalTarget]]:
         return super(MlflowTask, self).input()  # type: ignore[safe-super]
@@ -182,7 +189,6 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[_TReq], metaclass=MlflowTaskMeta
 
     def to_mlflow_tags(self) -> dict[str, MlflowTagValue]:
         """
-        DEPRECATED
         Serialize parameters of this task.
         By default, this method serialize all the parameters.
 
@@ -191,14 +197,9 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[_TReq], metaclass=MlflowTaskMeta
 
         :param exclude: Specify parameters not to show in the tags.
         """
-        serializer = self.get_tag_serializer()
-        base = {
-            name: serializer.serialize(getattr(self, name))
-            for name in self.get_param_names()
-            if name not in self.tags_to_exclude
-        }
-        base["name"] = str(self.__class__.__name__)
-        return base
+        return self.tag_manager.to_mlflow_tags(
+            param_values={name: getattr(self, name) for name in self.get_param_names()},
+        )
 
     def _run(self) -> None:
         """
