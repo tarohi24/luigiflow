@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Callable, Optional, Protocol, TypeVar, Union
 from uuid import UUID
 
-from luigiflow.domain.tag_param import TaskParameter
+from luigiflow.domain.tag_manager import TaskParameter
 from luigiflow.domain.task import MlflowTaskProtocol
 from luigiflow.types import ArtifactURI, RunReturn, TagKey, TagValue, TaskClassName
 

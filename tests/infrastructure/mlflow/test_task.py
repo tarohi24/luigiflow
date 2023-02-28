@@ -8,7 +8,7 @@ import pytest
 from luigi import LocalTarget
 
 from luigiflow.config import RunnerConfig
-from luigiflow.domain.tag_param import TaskParameter
+from luigiflow.domain.tag_manager import TaskParameter
 from luigiflow.domain.task import (
     MlflowTaskProtocol,
     OptionalTask,

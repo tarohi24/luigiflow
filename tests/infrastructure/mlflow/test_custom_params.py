@@ -11,7 +11,7 @@ from luigiflow.infrastructure.luigi.custom_params import (
     OptionalStrParameter,
 )
 from luigiflow.domain.serializer import UnknownParameter
-from luigiflow.domain.tag_param import TaskParameter
+from luigiflow.domain.tag_manager import TaskParameter
 from luigiflow.domain.task import MlflowTaskProtocol, TaskConfig
 from luigiflow.infrastructure.luigi.task import MlflowTask
 from luigiflow.infrastructure.mlflow.collection import TaskCollectionImpl

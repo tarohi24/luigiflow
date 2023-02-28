@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from luigi import Parameter
 
 from luigiflow.domain.serializer import ParameterSerializer
-from luigiflow.domain.tag_param import TaskTagManager
+from luigiflow.domain.tag_manager import TaskTagManager
 from luigiflow.types import ParameterName, TagKey, TagValue, TaskClassName
 
 

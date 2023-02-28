@@ -9,7 +9,7 @@ import mlflow
 
 from luigiflow.config import RunnerConfig
 from luigiflow.domain.collection import TaskCollection
-from luigiflow.domain.tag_param import TaskParameter
+from luigiflow.domain.tag_manager import TaskParameter
 from luigiflow.domain.task_run import (
     InvalidJsonnetFileError,
     K,
