@@ -31,7 +31,7 @@ from luigiflow.domain.serializer import (
     ParameterSerializer,
     default_serializer,
 )
-from luigiflow.domain.tag_param import TagManager
+from luigiflow.infrastructure.mlflow.tag_param import MlflowTagManager
 from luigiflow.task.protocol import MlflowTaskProtocol
 from luigiflow.task.task_types import (
     OptionalTask,
@@ -82,7 +82,7 @@ class MlflowTaskMeta(Register, Generic[_TReq], type(Protocol)):  # type: ignore[
                 cls.requirements_required[key] = True
 
         cls.artifact_filenames = config.artifact_filenames
-        cls.tag_manager = TagManager(
+        cls.tag_manager = MlflowTagManager(
             task_name=classname,
             params={
                 name: type(maybe_param)

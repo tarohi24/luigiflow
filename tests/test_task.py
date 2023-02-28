@@ -8,10 +8,10 @@ import pytest
 from luigi import LocalTarget
 
 from luigiflow.config import RunnerConfig
-from luigiflow.domain.collection import TaskCollectionImpl
 from luigiflow.domain.tag_param import TaskParameter
 from luigiflow.domain.task import MlflowTask, TaskConfig, TryingToSaveUndefinedArtifact
-from luigiflow.infrastructure.mlflow import MlflowTaskRunRepository
+from luigiflow.infrastructure.mlflow.collection import TaskCollectionImpl
+from luigiflow.infrastructure.mlflow.task_run import MlflowTaskRunRepository
 from luigiflow.task.protocol import MlflowTaskProtocol
 from luigiflow.task.task_types import OptionalTask, TaskList
 from luigiflow.utils.savers import save_dataframe, save_json, save_pickle

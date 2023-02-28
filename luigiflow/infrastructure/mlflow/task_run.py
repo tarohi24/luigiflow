@@ -1,23 +1,18 @@
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Optional, Union, cast
+from typing import Optional, Union, Callable, cast
 
 import _jsonnet
 import luigi
 import mlflow
 
 from luigiflow.config import RunnerConfig
-from luigiflow.domain.collection import TaskCollectionImpl
+from luigiflow.domain.collection import TaskCollection
 from luigiflow.domain.tag_param import TaskParameter
 from luigiflow.domain.task import MlflowTask
-from luigiflow.domain.task_run import (
-    InvalidJsonnetFileError,
-    K,
-    TaskRun,
-    TaskRunRepository,
-)
-from luigiflow.types import RunReturn, TagKey, TagValue, TaskClassName
+from luigiflow.domain.task_run import TaskRunRepository, TaskRun, K, InvalidJsonnetFileError
+from luigiflow.types import RunReturn, TaskClassName, TagKey, TagValue
 
 
 def _load_task_params(path: Path) -> TaskParameter:
@@ -29,10 +24,11 @@ def _load_task_params(path: Path) -> TaskParameter:
     return data
 
 
+
 @dataclass
 class MlflowTaskRunRepository(TaskRunRepository):
     config: RunnerConfig
-    experiment_repository: TaskCollectionImpl
+    experiment_repository: TaskCollection
 
     def run_with_task_param(
         self,

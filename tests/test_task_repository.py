@@ -8,11 +8,11 @@ import pytest
 from luigiflow.config import RunnerConfig
 from luigiflow.domain.collection import (
     ProtocolNotRegistered,
-    TaskCollectionImpl,
     TaskWithTheSameNameAlreadyRegistered,
 )
 from luigiflow.domain.task import MlflowTask, TaskConfig
-from luigiflow.infrastructure.mlflow import MlflowTaskRunRepository
+from luigiflow.infrastructure.mlflow.collection import TaskCollectionImpl
+from luigiflow.infrastructure.mlflow.task_run import MlflowTaskRunRepository
 from luigiflow.task.protocol import MlflowTaskProtocol
 from luigiflow.task.task_types import OptionalTask, TaskList
 from luigiflow.utils.savers import save_json

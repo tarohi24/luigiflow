@@ -4,7 +4,7 @@ from typing import Optional, TypedDict, cast
 import luigi
 import pytest
 
-from luigiflow.domain.collection import TaskCollectionImpl
+from luigiflow.infrastructure.mlflow.collection import TaskCollectionImpl
 from luigiflow.domain.custom_params import (
     OptionalDateParameter,
     OptionalFloatParameter,

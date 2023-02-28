@@ -4,7 +4,7 @@ from typing import cast
 import luigi
 import pytest
 
-from luigiflow.domain.collection import TaskCollectionImpl
+from luigiflow.infrastructure.mlflow.collection import TaskCollectionImpl
 from luigiflow.domain.task import MlflowTask, TaskConfig
 from luigiflow.task.protocol import MlflowTaskProtocol
 
