@@ -36,6 +36,7 @@ from luigiflow.domain.task import (
     TryingToSaveUndefinedArtifact,
 )
 from luigiflow.infrastructure.mlflow.tag_param import MlflowTagManager
+from luigiflow.types import TagValue, ParameterName
 
 _TReq = TypeVar("_TReq", bound=dict)
 _K = TypeVar("_K")
@@ -126,6 +127,9 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[_TReq], metaclass=MlflowTaskMeta
         requirements=dict(),
     )
 
+    def get_parameter_values(self) -> dict[ParameterName, TagValue]:
+        return {name: getattr(self, name) for name in self.get_param_names()}
+
     @classmethod
     @final
     def get_protocols(cls) -> list[type["MlflowTaskProtocol"]]:
@@ -133,18 +137,9 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[_TReq], metaclass=MlflowTaskMeta
 
     @classmethod
     @final
-    def get_tags_to_exclude(cls) -> set[str]:
-        """
-        Deprecated
-        :return:
-        """
-        return cls.tag_manager.get_param_names_not_to_tag()
-
-    @classmethod
-    @final
     def get_experiment_name(cls) -> str:
         """
-        :return: name of the mlflow experiment corresponding to this task.
+        I'm not sure if this class is responsible for managing its experiment name.
         """
         return cls.experiment_name
 
@@ -177,9 +172,7 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[_TReq], metaclass=MlflowTaskMeta
 
         :param exclude: Specify parameters not to show in the tags.
         """
-        return self.tag_manager.to_mlflow_tags(
-            param_values={name: getattr(self, name) for name in self.get_param_names()},
-        )
+        return self.tag_manager.to_tags(task=self, include_parent_tags=False)
 
     def _run(self) -> None:
         """

@@ -4,6 +4,7 @@ from luigi import Parameter
 
 from luigiflow.domain.serializer import ParameterSerializer
 from luigiflow.domain.tag_manager import TaskTagManager
+from luigiflow.domain.task import MlflowTaskProtocol
 from luigiflow.types import ParameterName, TagKey, TagValue, TaskClassName
 
 
@@ -21,9 +22,7 @@ class MlflowTagManager(TaskTagManager):
     def param_name_to_tag_key(param_name: ParameterName) -> TagKey:
         return param_name
 
-    def to_mlflow_tags(
-        self, param_values: dict[ParameterName, TagValue]
-    ) -> dict[TagKey, TagValue]:
+    def _to_mlflow_tags(self, param_values: dict[ParameterName, TagValue]):
         assert (
             set(param_values.keys()) == set(self.params.keys()),
             f"Expected {self.params.keys()}, but got {param_values.keys()}",
@@ -37,3 +36,9 @@ class MlflowTagManager(TaskTagManager):
         }
         base["name"] = str(self.task_name)
         return base
+
+    def to_tags(
+        self, task: MlflowTaskProtocol, include_parent_tags: bool,
+    ) -> dict[TagKey, TagValue]:
+        if not include_parent_tags:
+            return self._to_mlflow_tags(param_values=task.get_parameter_values())

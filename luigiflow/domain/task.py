@@ -18,6 +18,7 @@ from mlflow.protos.service_pb2 import ACTIVE_ONLY, RunStatus
 from pydantic import BaseModel, Extra, Field
 
 from luigiflow.domain.serializer import MlflowTagValue, ParameterSerializer
+from luigiflow.types import ParameterName, TagValue
 
 _TReq = TypeVar("_TReq", bound=dict)
 _K = TypeVar("_K")
@@ -33,12 +34,15 @@ class MlflowTaskProtocol(Protocol[_TReq]):
     `T` is a `TypedDict` to describe `requires()`.
     """
 
-    @classmethod
-    def get_protocols(cls) -> list[type["MlflowTaskProtocol"]]:
+    def get_parameter_values(self) -> dict[ParameterName, TagValue]:
+        """
+        Don't name it `get_param_values` because it may conflict with `luigi.Task`.
+        :return:
+        """
         ...
 
     @classmethod
-    def get_tags_to_exclude(cls) -> set[str]:
+    def get_protocols(cls) -> list[type["MlflowTaskProtocol"]]:
         ...
 
     @classmethod

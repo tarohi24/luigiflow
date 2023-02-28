@@ -1,11 +1,12 @@
 from typing import Any, Protocol, TypedDict, Union
 
+from luigiflow.domain.task import MlflowTaskProtocol
 from luigiflow.types import ParameterName, TagKey, TagValue
 
 
 class TaskTagManager(Protocol):
-    def to_mlflow_tags(
-        self, param_values: dict[ParameterName, TagValue]
+    def to_tags(
+        self, task: MlflowTaskProtocol, include_parent_tags: bool,
     ) -> dict[TagKey, TagValue]:
         raise NotImplementedError
 
