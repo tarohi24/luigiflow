@@ -4,16 +4,16 @@ from typing import Optional, TypedDict, cast
 import luigi
 import pytest
 
+from luigiflow.domain.collection import TaskCollection, UnknownParameter
 from luigiflow.domain.custom_params import (
     OptionalDateParameter,
     OptionalFloatParameter,
     OptionalIntParameter,
     OptionalStrParameter,
 )
-from luigiflow.task.protocol import MlflowTaskProtocol
-from luigiflow.domain.task import MlflowTask, TaskConfig
-from luigiflow.domain.collection import UnknownParameter, TaskCollection
 from luigiflow.domain.tag_param import TaskParameter
+from luigiflow.domain.task import MlflowTask, TaskConfig
+from luigiflow.task.protocol import MlflowTaskProtocol
 
 
 class TaskProtocol(MlflowTaskProtocol):
@@ -84,7 +84,7 @@ def test_serialize_date_param():
 
 def test_inconsistent_param_name():
     with pytest.raises(UnknownParameter):
-        TaskCollection([TaskA, ]).generate_task_tree(
+        TaskCollection([TaskA,]).generate_task_tree(
             task_params={"cls": "TaskA", "params": {"unknown": "hi"}},
             protocol=TaskProtocol,
         )

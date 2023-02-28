@@ -6,11 +6,15 @@ import luigi
 import pytest
 
 from luigiflow.config import RunnerConfig
-from luigiflow.runner import Runner
-from luigiflow.task.protocol import MlflowTaskProtocol
+from luigiflow.domain.collection import (
+    ProtocolNotRegistered,
+    TaskCollection,
+    TaskWithTheSameNameAlreadyRegistered,
+)
 from luigiflow.domain.task import MlflowTask, TaskConfig
+from luigiflow.infrastructure.mlflow import MlflowTaskRunRepository
+from luigiflow.task.protocol import MlflowTaskProtocol
 from luigiflow.task.task_types import OptionalTask, TaskList
-from luigiflow.domain.collection import TaskWithTheSameNameAlreadyRegistered, ProtocolNotRegistered, TaskCollection
 from luigiflow.utils.savers import save_json
 
 
@@ -200,7 +204,7 @@ def test_too_many_tags(artifacts_server, tmpdir):
                 }
             )
 
-    runner = Runner(
+    runner = MlflowTaskRunRepository(
         config=RunnerConfig(
             mlflow_tracking_uri=artifacts_server.url,
             use_local_scheduler=True,
@@ -325,7 +329,7 @@ def test_allow_null_requirements(artifacts_server, tmpdir, maybe_task, config, i
                 }
             )
 
-    runner = Runner(
+    runner = MlflowTaskRunRepository(
         config=RunnerConfig(
             mlflow_tracking_uri=artifacts_server.url,
             use_local_scheduler=True,
@@ -455,7 +459,7 @@ def test_list_requirements(artifacts_server, tmpdir):
     with open(config_path, "w") as fout:
         fout.write(config)
 
-    runner = Runner(
+    runner = MlflowTaskRunRepository(
         config=RunnerConfig(
             mlflow_tracking_uri=artifacts_server.url,
             use_local_scheduler=True,

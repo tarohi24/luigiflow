@@ -8,10 +8,10 @@ import pytest
 from luigi import LuigiStatusCode
 
 from luigiflow.config import RunnerConfig
-from luigiflow.runner import Runner
-from luigiflow.task.protocol import MlflowTaskProtocol
-from luigiflow.domain.task import MlflowTask, TaskConfig
 from luigiflow.domain.collection import TaskCollection
+from luigiflow.domain.task import MlflowTask, TaskConfig
+from luigiflow.infrastructure.mlflow import MlflowTaskRunRepository
+from luigiflow.task.protocol import MlflowTaskProtocol
 from luigiflow.utils.savers import save_dataframe
 
 
@@ -97,8 +97,8 @@ class TaskB(MlflowTask[Requirements]):
 
 
 @pytest.fixture()
-def runner(artifacts_server) -> Runner:
-    runner = Runner(
+def runner(artifacts_server) -> MlflowTaskRunRepository:
+    runner = MlflowTaskRunRepository(
         config=RunnerConfig(
             mlflow_tracking_uri=artifacts_server.url,
             use_local_scheduler=True,

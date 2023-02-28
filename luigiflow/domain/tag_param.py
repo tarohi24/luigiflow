@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import TypedDict, Any, Union
+from typing import Any, TypedDict, Union
 
 from luigi import Parameter
 

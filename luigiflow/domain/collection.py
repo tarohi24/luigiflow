@@ -4,10 +4,10 @@ from typing import Any, Optional, Union, cast
 from luigi import Parameter
 
 from luigiflow.domain.serializer import DESERIALIZERS
-from luigiflow.task.protocol import MlflowTaskProtocol
-from luigiflow.domain.task import MlflowTask
-from luigiflow.task.task_types import TaskList, TaskImplementationList
 from luigiflow.domain.tag_param import TaskParameter
+from luigiflow.domain.task import MlflowTask
+from luigiflow.task.protocol import MlflowTaskProtocol
+from luigiflow.task.task_types import TaskImplementationList, TaskList
 
 
 class TaskWithTheSameNameAlreadyRegistered(Exception):
