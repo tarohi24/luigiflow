@@ -8,7 +8,7 @@ import pytest
 from luigi import LuigiStatusCode
 
 from luigiflow.config import RunnerConfig
-from luigiflow.domain.collection import TaskCollection
+from luigiflow.domain.collection import TaskCollectionImpl
 from luigiflow.domain.task import MlflowTask, TaskConfig
 from luigiflow.infrastructure.mlflow import MlflowTaskRunRepository
 from luigiflow.task.protocol import MlflowTaskProtocol
@@ -104,7 +104,7 @@ def runner(artifacts_server) -> MlflowTaskRunRepository:
             use_local_scheduler=True,
             create_experiment_if_not_existing=True,
         ),
-        experiment_repository=TaskCollection(
+        experiment_repository=TaskCollectionImpl(
             task_classes=[TaskA, TaskB],
         ),
     )

@@ -8,7 +8,7 @@ import pytest
 from luigi import LocalTarget
 
 from luigiflow.config import RunnerConfig
-from luigiflow.domain.collection import TaskCollection
+from luigiflow.domain.collection import TaskCollectionImpl
 from luigiflow.domain.tag_param import TaskParameter
 from luigiflow.domain.task import MlflowTask, TaskConfig, TryingToSaveUndefinedArtifact
 from luigiflow.infrastructure.mlflow import MlflowTaskRunRepository
@@ -88,7 +88,7 @@ def test_to_tags_w_parents(monkeypatch):
         def _run(self) -> NoReturn:
             ...
 
-    task_repo = TaskCollection(
+    task_repo = TaskCollectionImpl(
         task_classes=[TaskA, TaskB, TaskC, MainTask],
     )
     task_params = {
@@ -163,7 +163,7 @@ def test_save_artifacts(artifacts_server):
                 }
             )
 
-    task = TaskCollection([Task,]).generate_task_tree(
+    task = TaskCollectionImpl([Task,]).generate_task_tree(
         task_params={
             "cls": "Task",
         },
@@ -199,7 +199,7 @@ def test_save_artifacts_but_files_are_mismatched(artifacts_server):
                 }
             )
 
-    task = TaskCollection([InvalidTask,]).generate_task_tree(
+    task = TaskCollectionImpl([InvalidTask,]).generate_task_tree(
         task_params={"cls": "InvalidTask"},
         protocol=DummyProtocol,
     )
@@ -278,7 +278,7 @@ def test_to_mlflow_tags_with_non_mlflow_task_requirements(tmpdir, artifacts_serv
             use_local_scheduler=True,
             create_experiment_if_not_existing=True,
         ),
-        experiment_repository=TaskCollection(
+        experiment_repository=TaskCollectionImpl(
             task_classes=[TaskA, TaskB],
         ),
     )
@@ -329,7 +329,7 @@ def test_too_many_mlflow_tags(artifacts_server):
             use_local_scheduler=True,
             create_experiment_if_not_existing=True,
         ),
-        experiment_repository=TaskCollection(
+        experiment_repository=TaskCollectionImpl(
             task_classes=[TaskA, TaskB],
         ),
     )
@@ -429,7 +429,7 @@ def test_hash_of_nested_requirements(artifacts_server):
             use_local_scheduler=True,
             create_experiment_if_not_existing=True,
         ),
-        experiment_repository=TaskCollection(
+        experiment_repository=TaskCollectionImpl(
             task_classes=[TaskA, TaskB],
         ),
     )

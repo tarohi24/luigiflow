@@ -1,9 +1,7 @@
 from dataclasses import dataclass, field
-from typing import Any, Optional, Union, cast
+from typing import Optional, Union, cast
 
-from luigi import Parameter
-
-from luigiflow.domain.serializer import DESERIALIZERS
+from luigiflow.domain.serializer import deserialize_params
 from luigiflow.domain.tag_param import TaskParameter
 from luigiflow.domain.task import MlflowTask
 from luigiflow.task.protocol import MlflowTaskProtocol
@@ -21,22 +19,6 @@ class InconsistentDependencies(Exception):
 class ProtocolNotRegistered(Exception):
     ...
 
-
-class UnknownParameter(Exception):
-    ...
-
-
-def _deserialize_params(
-    params: dict[str, Any],
-    param_types: dict[str, type[Parameter]],
-) -> dict[str, Any]:
-    try:
-        deserializers = {
-            key: DESERIALIZERS[param_types[key].__name__] for key in params.keys()
-        }
-    except KeyError as e:
-        raise UnknownParameter(str(e))
-    return {key: deserializers[key](str(val)) for key, val in params.items()}
 
 
 @dataclass
@@ -59,7 +41,7 @@ class ProtocolCollectionItem:
 
 
 @dataclass(init=False)
-class TaskCollection:
+class TaskCollectionImpl:
     """
     Note that this repository doesn't manage experiment names becuase that's not necessary.
     """
@@ -107,7 +89,7 @@ class TaskCollection:
         except KeyError:
             raise ProtocolNotRegistered(f"Unknown protocol: {protocol_name}")
         task_cls: type[MlflowTask] = protocol_item.get(cls_name)
-        task_kwargs = _deserialize_params(
+        task_kwargs = deserialize_params(
             params=task_params.get("params", dict()),  # allow empty params
             param_types=task_cls.tag_manager.params,
         )

@@ -2,8 +2,14 @@ import datetime
 from dataclasses import dataclass
 from typing import Any, Callable, Generic, Optional, TypeVar, Union, cast
 
+from luigi import Parameter
+
 MlflowTagValue = Union[str, int, float]
 T = TypeVar("T")
+
+
+class UnknownParameter(Exception):
+    ...
 
 
 @dataclass
@@ -83,3 +89,16 @@ DESERIALIZERS: dict[str, Callable[[str], Any]] = {
     "OptionalStrParameter": get_optional_serializer(str),
     "OptionalDateParameter": get_optional_serializer(datetime.date.fromisoformat),
 }
+
+
+def deserialize_params(
+    params: dict[str, Any],
+    param_types: dict[str, type[Parameter]],
+) -> dict[str, Any]:
+    try:
+        deserializers = {
+            key: DESERIALIZERS[param_types[key].__name__] for key in params.keys()
+        }
+    except KeyError as e:
+        raise UnknownParameter(str(e))
+    return {key: deserializers[key](str(val)) for key, val in params.items()}

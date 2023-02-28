@@ -4,7 +4,7 @@ from typing import cast
 import luigi
 import pytest
 
-from luigiflow.domain.collection import TaskCollection
+from luigiflow.domain.collection import TaskCollectionImpl
 from luigiflow.domain.task import MlflowTask, TaskConfig
 from luigiflow.task.protocol import MlflowTaskProtocol
 
@@ -45,7 +45,7 @@ class AnotherTask(MlflowTask):
 class TestToTags:
     @pytest.fixture()
     def task(self) -> Task:
-        repo = TaskCollection([Task])
+        repo = TaskCollectionImpl([Task])
         task = repo.generate_task_tree(
             task_params={
                 "cls": "Task",
@@ -79,7 +79,7 @@ class TestToTags:
         assert actual == expected
 
     def test_invalid_param_type(self):
-        repo = TaskCollection([Task])
+        repo = TaskCollectionImpl([Task])
         repo._protocols["DummyProtocol"].register(AnotherTask)
         task = repo.generate_task_tree(
             task_params={

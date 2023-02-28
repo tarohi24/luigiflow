@@ -8,7 +8,7 @@ import luigi
 import mlflow
 
 from luigiflow.config import RunnerConfig
-from luigiflow.domain.collection import TaskCollection
+from luigiflow.domain.collection import TaskCollectionImpl
 from luigiflow.domain.tag_param import TaskParameter
 from luigiflow.domain.task import MlflowTask
 from luigiflow.domain.task_run import (
@@ -32,7 +32,7 @@ def _load_task_params(path: Path) -> TaskParameter:
 @dataclass
 class MlflowTaskRunRepository(TaskRunRepository):
     config: RunnerConfig
-    experiment_repository: TaskCollection
+    experiment_repository: TaskCollectionImpl
 
     def run_with_task_param(
         self,

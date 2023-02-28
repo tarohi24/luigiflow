@@ -8,7 +8,7 @@ import pytest
 from luigiflow.config import RunnerConfig
 from luigiflow.domain.collection import (
     ProtocolNotRegistered,
-    TaskCollection,
+    TaskCollectionImpl,
     TaskWithTheSameNameAlreadyRegistered,
 )
 from luigiflow.domain.task import MlflowTask, TaskConfig
@@ -65,7 +65,7 @@ class NewTask(MlflowTask):
 
 def test_duplicated_tasks():
     with pytest.raises(TaskWithTheSameNameAlreadyRegistered):
-        TaskCollection(
+        TaskCollectionImpl(
             task_classes=[
                 DoNothingImpl,
                 DoNothingImpl,
@@ -87,7 +87,7 @@ def test_unknown_protocol():
             },
         )
 
-    repo = TaskCollection(
+    repo = TaskCollectionImpl(
         task_classes=[
             TaskHavingUnknownProtocol,
         ],
@@ -141,7 +141,7 @@ def test_recursively_nested_task(artifacts_server):
             artifact_filenames=dict(),
         )
 
-    repo = TaskCollection(
+    repo = TaskCollectionImpl(
         task_classes=[
             TaskA,
             TaskB,
@@ -210,7 +210,7 @@ def test_too_many_tags(artifacts_server, tmpdir):
             use_local_scheduler=True,
             create_experiment_if_not_existing=True,
         ),
-        experiment_repository=TaskCollection(
+        experiment_repository=TaskCollectionImpl(
             task_classes=[DoSomething, NewTask],
         ),
     )
@@ -335,7 +335,7 @@ def test_allow_null_requirements(artifacts_server, tmpdir, maybe_task, config, i
             use_local_scheduler=True,
             create_experiment_if_not_existing=True,
         ),
-        experiment_repository=TaskCollection(
+        experiment_repository=TaskCollectionImpl(
             task_classes=[TaskA, TaskB],
         ),
     )
@@ -465,7 +465,7 @@ def test_list_requirements(artifacts_server, tmpdir):
             use_local_scheduler=True,
             create_experiment_if_not_existing=True,
         ),
-        experiment_repository=TaskCollection(
+        experiment_repository=TaskCollectionImpl(
             task_classes=[TaskA, TaskB, TaskC],
         ),
     )

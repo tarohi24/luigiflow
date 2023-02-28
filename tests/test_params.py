@@ -4,13 +4,14 @@ from typing import Optional, TypedDict, cast
 import luigi
 import pytest
 
-from luigiflow.domain.collection import TaskCollection, UnknownParameter
+from luigiflow.domain.collection import TaskCollectionImpl
 from luigiflow.domain.custom_params import (
     OptionalDateParameter,
     OptionalFloatParameter,
     OptionalIntParameter,
     OptionalStrParameter,
 )
+from luigiflow.domain.serializer import UnknownParameter
 from luigiflow.domain.tag_param import TaskParameter
 from luigiflow.domain.task import MlflowTask, TaskConfig
 from luigiflow.task.protocol import MlflowTaskProtocol
@@ -54,7 +55,7 @@ def test_serialize_date_param():
     # test default value
     task = cast(
         TaskA,
-        TaskCollection(
+        TaskCollectionImpl(
             [
                 TaskA,
             ]
@@ -65,7 +66,7 @@ def test_serialize_date_param():
     task_params["params"]["date_param"] = "2021-12-12"
     task = cast(
         TaskA,
-        TaskCollection(
+        TaskCollectionImpl(
             [
                 TaskA,
             ]
@@ -75,7 +76,7 @@ def test_serialize_date_param():
     # test with an invalid param
     task_params["params"]["date_param"] = "invalid"
     with pytest.raises(ValueError):
-        TaskCollection(
+        TaskCollectionImpl(
             [
                 TaskA,
             ]
@@ -84,7 +85,7 @@ def test_serialize_date_param():
 
 def test_inconsistent_param_name():
     with pytest.raises(UnknownParameter):
-        TaskCollection([TaskA,]).generate_task_tree(
+        TaskCollectionImpl([TaskA,]).generate_task_tree(
             task_params={"cls": "TaskA", "params": {"unknown": "hi"}},
             protocol=TaskProtocol,
         )
@@ -110,7 +111,7 @@ def test_optional_param():
             "maybe_date": None,
         },
     }
-    task: Task = TaskCollection([Task]).generate_task_tree(  # type: ignore
+    task: Task = TaskCollectionImpl([Task]).generate_task_tree(  # type: ignore
         task_params=config,
         protocol=TaskProtocol,
     )
@@ -138,7 +139,7 @@ def test_optional_param():
             "maybe_value_default_none": 10,
         },
     }
-    task: Task = TaskCollection([Task]).generate_task_tree(  # type: ignore
+    task: Task = TaskCollectionImpl([Task]).generate_task_tree(  # type: ignore
         task_params=config,
         protocol=TaskProtocol,
     )
