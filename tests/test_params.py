@@ -4,7 +4,6 @@ from typing import Optional, TypedDict, cast
 import luigi
 import pytest
 
-from luigiflow.infrastructure.mlflow.collection import TaskCollectionImpl
 from luigiflow.domain.custom_params import (
     OptionalDateParameter,
     OptionalFloatParameter,
@@ -13,8 +12,9 @@ from luigiflow.domain.custom_params import (
 )
 from luigiflow.domain.serializer import UnknownParameter
 from luigiflow.domain.tag_param import TaskParameter
-from luigiflow.domain.task import MlflowTask, TaskConfig
-from luigiflow.task.protocol import MlflowTaskProtocol
+from luigiflow.domain.task import MlflowTaskProtocol, TaskConfig
+from luigiflow.infrastructure.luigi.task import MlflowTask
+from luigiflow.infrastructure.mlflow.collection import TaskCollectionImpl
 
 
 class TaskProtocol(MlflowTaskProtocol):

@@ -1,8 +1,8 @@
 from typing import Optional, Protocol
 
 from luigiflow.domain.tag_param import TaskParameter
-from luigiflow.domain.task import MlflowTask
-from luigiflow.task.protocol import MlflowTaskProtocol
+from luigiflow.domain.task import MlflowTaskProtocol
+from luigiflow.infrastructure.luigi.task import MlflowTask
 
 
 class TaskWithTheSameNameAlreadyRegistered(Exception):

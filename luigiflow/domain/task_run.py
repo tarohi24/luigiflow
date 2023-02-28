@@ -4,7 +4,7 @@ from typing import Callable, Optional, Protocol, TypeVar, Union
 from uuid import UUID
 
 from luigiflow.domain.tag_param import TaskParameter
-from luigiflow.domain.task import MlflowTask
+from luigiflow.infrastructure.luigi.task import MlflowTask
 from luigiflow.types import ArtifactURI, RunReturn, TagKey, TagValue, TaskClassName
 
 K = TypeVar("K")

@@ -1,12 +1,14 @@
 from dataclasses import dataclass, field
 from typing import Optional, Union, cast
 
-from luigiflow.domain.collection import TaskWithTheSameNameAlreadyRegistered, ProtocolNotRegistered
+from luigiflow.domain.collection import (
+    ProtocolNotRegistered,
+    TaskWithTheSameNameAlreadyRegistered,
+)
 from luigiflow.domain.serializer import deserialize_params
 from luigiflow.domain.tag_param import TaskParameter
-from luigiflow.domain.task import MlflowTask
-from luigiflow.task.protocol import MlflowTaskProtocol
-from luigiflow.task.task_types import TaskList, TaskImplementationList
+from luigiflow.domain.task import MlflowTaskProtocol, TaskList
+from luigiflow.infrastructure.luigi.task import MlflowTask, TaskImplementationList
 
 
 @dataclass

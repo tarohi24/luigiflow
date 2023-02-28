@@ -10,11 +10,10 @@ from luigiflow.domain.collection import (
     ProtocolNotRegistered,
     TaskWithTheSameNameAlreadyRegistered,
 )
-from luigiflow.domain.task import MlflowTask, TaskConfig
+from luigiflow.domain.task import MlflowTaskProtocol, OptionalTask, TaskConfig, TaskList
+from luigiflow.infrastructure.luigi.task import MlflowTask
 from luigiflow.infrastructure.mlflow.collection import TaskCollectionImpl
 from luigiflow.infrastructure.mlflow.task_run import MlflowTaskRunRepository
-from luigiflow.task.protocol import MlflowTaskProtocol
-from luigiflow.task.task_types import OptionalTask, TaskList
 from luigiflow.utils.savers import save_json
 
 

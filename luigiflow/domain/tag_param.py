@@ -1,4 +1,4 @@
-from typing import Any, TypedDict, Union, Protocol
+from typing import Any, Protocol, TypedDict, Union
 
 from luigiflow.types import ParameterName, TagKey, TagValue
 
