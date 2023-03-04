@@ -4,7 +4,7 @@ from typing import Callable, Optional, Protocol, TypeVar, Union
 from uuid import UUID
 
 from luigiflow.domain.tag_manager import TaskParameter
-from luigiflow.domain.task import MlflowTaskProtocol
+from luigiflow.domain.task import DeprecatedTaskProtocol
 from luigiflow.types import ArtifactURI, RunReturn, TagKey, TagValue, TaskClassName
 
 K = TypeVar("K")
@@ -31,7 +31,7 @@ class TaskRunRepository(Protocol):
 
     def save_run(
         self,
-        task: MlflowTaskProtocol,
+        task: DeprecatedTaskProtocol,
         artifacts_and_save_funcs: Optional[
             dict[str, Union[Callable[[str], None], tuple[K, Callable[[K, str], None]]]]
         ] = None,

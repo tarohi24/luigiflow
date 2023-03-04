@@ -32,6 +32,10 @@ build-backend = "poetry.core.masonry.api"
 target-version = ['py310']
 include = '\.pyi?$'
 extend-exclude = 'luigiflow/testing.py'
+line-length = 128
 
 [tool.mypy]
 ignore_missing_imports = true
+
+
+

@@ -10,41 +10,41 @@ from luigi import LocalTarget
 from luigiflow.config import RunnerConfig
 from luigiflow.domain.tag_manager import TaskParameter
 from luigiflow.domain.task import (
-    MlflowTaskProtocol,
+    DeprecatedTaskProtocol,
     OptionalTask,
     TaskConfig,
     TaskList,
     TryingToSaveUndefinedArtifact,
 )
-from luigiflow.infrastructure.luigi.task import MlflowTask
+from luigiflow.infrastructure.luigi.task import DeprecatedTask
 from luigiflow.infrastructure.mlflow.collection import TaskCollectionImpl
 from luigiflow.infrastructure.mlflow.task_run import MlflowTaskRunRepository
 from luigiflow.utils.savers import save_dataframe, save_json, save_pickle
 from luigiflow.utils.testing import assert_two_tags_equal_wo_hashes
 
 
-class DummyProtocol(MlflowTaskProtocol):
+class DummyProtocolDeprecated(DeprecatedTaskProtocol):
     ...
 
 
 def test_to_tags_w_parents(monkeypatch):
-    class ITaskA(MlflowTaskProtocol):
+    class IDeprecatedTaskA(DeprecatedTaskProtocol):
         ...
 
-    class ITaskB(MlflowTaskProtocol):
+    class IDeprecatedTaskB(DeprecatedTaskProtocol):
         ...
 
-    class ITaskC(MlflowTaskProtocol):
+    class IDeprecatedTaskC(DeprecatedTaskProtocol):
         ...
 
-    class IMainTask(MlflowTaskProtocol):
+    class IMainDeprecatedTask(DeprecatedTaskProtocol):
         ...
 
-    class TaskA(MlflowTask[dict]):
+    class TaskA(DeprecatedTask[dict]):
         param: str = luigi.Parameter(default="hi")
         config = TaskConfig(
             protocols=[
-                ITaskA,
+                IDeprecatedTaskA,
             ],
             requirements=dict(),
         )
@@ -52,25 +52,25 @@ def test_to_tags_w_parents(monkeypatch):
         def _run(self) -> NoReturn:
             ...
 
-    class TaskB(MlflowTask[dict]):
+    class TaskB(DeprecatedTask[dict]):
         value: int = luigi.IntParameter(default=1)
         config = TaskConfig(
             protocols=[
-                ITaskB,
+                IDeprecatedTaskB,
             ],
             requirements={
-                "aaa": ITaskA,
+                "aaa": IDeprecatedTaskA,
             },
         )
 
         def _run(self) -> NoReturn:
             ...
 
-    class TaskC(MlflowTask[dict]):
+    class TaskC(DeprecatedTask[dict]):
         int_param: int = luigi.IntParameter(default=10)
         config = TaskConfig(
             protocols=[
-                ITaskC,
+                IDeprecatedTaskC,
             ],
             requirements=dict(),
         )
@@ -78,15 +78,15 @@ def test_to_tags_w_parents(monkeypatch):
         def _run(self) -> NoReturn:
             ...
 
-    class MainTask(MlflowTask[dict]):
+    class MainTask(DeprecatedTask[dict]):
         bool_param: bool = luigi.BoolParameter(default=False)
         config = TaskConfig(
             protocols=[
-                IMainTask,
+                IMainDeprecatedTask,
             ],
             requirements={
-                "bbb": ITaskB,
-                "ccc": ITaskC,
+                "bbb": IDeprecatedTaskB,
+                "ccc": IDeprecatedTaskC,
             },
         )
 
@@ -141,7 +141,7 @@ def test_save_artifacts(artifacts_server):
         with open(path, "w") as fout:
             fout.write("hello!\n")
 
-    class Task(MlflowTask):
+    class Task(Task):
         config = TaskConfig(
             artifact_filenames={
                 "csv": "df.csv",
@@ -149,7 +149,7 @@ def test_save_artifacts(artifacts_server):
                 "text": "text.txt",
             },
             protocols=[
-                DummyProtocol,
+                DummyProtocolDeprecated,
             ],
         )
 
@@ -187,10 +187,10 @@ def test_save_artifacts(artifacts_server):
 
 
 def test_save_artifacts_but_files_are_mismatched(artifacts_server):
-    class InvalidTask(MlflowTask):
+    class InvalidTask(DeprecatedTask):
         config = TaskConfig(
             protocols=[
-                DummyProtocol,
+                DummyProtocolDeprecated,
             ],
             artifact_filenames={
                 "csv": "csv.csv",
@@ -206,7 +206,7 @@ def test_save_artifacts_but_files_are_mismatched(artifacts_server):
 
     task = TaskCollectionImpl([InvalidTask,]).generate_task_tree(
         task_params={"cls": "InvalidTask"},
-        protocol=DummyProtocol,
+        protocol=DummyProtocolDeprecated,
     )
     assert task.output() is None
     with pytest.raises(TryingToSaveUndefinedArtifact):
@@ -216,36 +216,36 @@ def test_save_artifacts_but_files_are_mismatched(artifacts_server):
 def test_experiment_name(artifacts_server):
     with pytest.raises(ValueError):
 
-        class InvalidTask(MlflowTask):
+        class InvalidTask(DeprecatedTask):
             config = TaskConfig(
                 experiment_name="hi",  # noqa
-                protocols=[DummyProtocol],
+                protocols=[DummyProtocolDeprecated],
             )
 
-    class ValidTask(MlflowTask):
+    class ValidTask(DeprecatedTask):
         config = TaskConfig(
-            protocols=[DummyProtocol],
+            protocols=[DummyProtocolDeprecated],
         )
 
     assert ValidTask.get_experiment_name() == "ValidTask"
 
 
 def test_to_mlflow_tags_with_non_mlflow_task_requirements(tmpdir, artifacts_server):
-    class TaskA(MlflowTask):
+    class TaskA(DeprecatedTask):
         value: int = luigi.IntParameter()
         config = TaskConfig(
-            protocols=[DummyProtocol],
+            protocols=[DummyProtocolDeprecated],
         )
 
         def _run(self) -> NoReturn:
             self.save_to_mlflow()
 
-    class TaskB(MlflowTask):
+    class TaskB(DeprecatedTask):
         config = TaskConfig(
-            protocols=[DummyProtocol],
+            protocols=[DummyProtocolDeprecated],
             requirements={
-                "a": TaskList(DummyProtocol),
-                "b": OptionalTask(DummyProtocol),
+                "a": TaskList(DummyProtocolDeprecated),
+                "b": OptionalTask(DummyProtocolDeprecated),
             },
         )
 
@@ -291,7 +291,7 @@ def test_to_mlflow_tags_with_non_mlflow_task_requirements(tmpdir, artifacts_serv
         config_jsonnet_path=config_path,
         dry_run=True,
     )
-    actual_tags = cast(MlflowTask, task).to_mlflow_tags_w_parent_tags()
+    actual_tags = cast(DeprecatedTask, task).to_mlflow_tags_w_parent_tags()
     expected_tags = {
         "name": "TaskB",
         "_hash": "...",
@@ -307,21 +307,21 @@ def test_to_mlflow_tags_with_non_mlflow_task_requirements(tmpdir, artifacts_serv
 
 
 def test_too_many_mlflow_tags(artifacts_server):
-    class TaskA(MlflowTask):
+    class TaskA(DeprecatedTask):
         value: int = luigi.IntParameter()
         config = TaskConfig(
-            protocols=[DummyProtocol],
+            protocols=[DummyProtocolDeprecated],
         )
 
         def _run(self) -> NoReturn:
             self.save_to_mlflow()
 
-    class TaskB(MlflowTask):
+    class TaskB(DeprecatedTask):
         value: int = luigi.IntParameter()
         config = TaskConfig(
-            protocols=[DummyProtocol],
+            protocols=[DummyProtocolDeprecated],
             requirements={
-                "a": TaskList(DummyProtocol),
+                "a": TaskList(DummyProtocolDeprecated),
             },
         )
 
@@ -359,7 +359,7 @@ def test_too_many_mlflow_tags(artifacts_server):
         task_param=task_param,
         dry_run=True,
     )
-    actual = cast(MlflowTask, task).to_mlflow_tags_w_parent_tags()
+    actual = cast(DeprecatedTask, task).to_mlflow_tags_w_parent_tags()
     expected = {
         "name": "TaskB",
         "value": 1,
@@ -369,7 +369,7 @@ def test_too_many_mlflow_tags(artifacts_server):
     assert expected == actual
 
     # hash values should not change each time
-    actual = cast(MlflowTask, task).to_mlflow_tags_w_parent_tags()
+    actual = cast(DeprecatedTask, task).to_mlflow_tags_w_parent_tags()
     assert expected == actual
 
     task_param["requires"]["a"][0]["params"]["value"] = 1  # modify
@@ -377,7 +377,7 @@ def test_too_many_mlflow_tags(artifacts_server):
         task_param=task_param,
         dry_run=True,
     )
-    actual = cast(MlflowTask, task).to_mlflow_tags_w_parent_tags()
+    actual = cast(DeprecatedTask, task).to_mlflow_tags_w_parent_tags()
     assert expected["a_hash"] != actual["a_hash"]
 
     task_param: TaskParameter = {
@@ -401,27 +401,27 @@ def test_too_many_mlflow_tags(artifacts_server):
         task_param=task_param,
         dry_run=True,
     )
-    actual = cast(MlflowTask, task).to_mlflow_tags_w_parent_tags()
+    actual = cast(DeprecatedTask, task).to_mlflow_tags_w_parent_tags()
     assert set(actual.keys()) == set(expected.keys())
     assert expected["a_hash"] != actual["a_hash"]
 
 
 def test_hash_of_nested_requirements(artifacts_server):
-    class TaskA(MlflowTask):
+    class TaskA(DeprecatedTask):
         value: int = luigi.IntParameter()
         config = TaskConfig(
-            protocols=[DummyProtocol],
+            protocols=[DummyProtocolDeprecated],
         )
 
         def _run(self) -> NoReturn:
             self.save_to_mlflow()
 
-    class TaskB(MlflowTask):
+    class TaskB(DeprecatedTask):
         value: int = luigi.IntParameter()
         config = TaskConfig(
-            protocols=[DummyProtocol],
+            protocols=[DummyProtocolDeprecated],
             requirements={
-                "a": TaskList(DummyProtocol),
+                "a": TaskList(DummyProtocolDeprecated),
             },
         )
 
@@ -468,11 +468,11 @@ def test_hash_of_nested_requirements(artifacts_server):
         task_param=task_param,
         dry_run=True,
     )
-    hash_before = cast(MlflowTask, task).to_mlflow_tags_w_parent_tags()["a.0._hash"]
+    hash_before = cast(DeprecatedTask, task).to_mlflow_tags_w_parent_tags()["a.0._hash"]
     task_param["requires"]["a"][0]["requires"]["a"][0]["params"]["value"] = 2
     task, _ = runner.run_with_task_param(
         task_param=task_param,
         dry_run=True,
     )
-    hash_after = cast(MlflowTask, task).to_mlflow_tags_w_parent_tags()["a.0._hash"]
+    hash_after = cast(DeprecatedTask, task).to_mlflow_tags_w_parent_tags()["a.0._hash"]
     assert hash_before != hash_after

@@ -29,18 +29,17 @@ from tqdm.contrib.logging import logging_redirect_tqdm
 
 from luigiflow.domain.serializer import MlflowTagValue, default_serializer
 from luigiflow.domain.task import (
-    MlflowTaskProtocol,
+    DeprecatedTaskProtocol,
     OptionalTask,
     TaskConfig,
     TaskList,
     TryingToSaveUndefinedArtifact,
 )
-from luigiflow.infrastructure.mlflow.tag_param import MlflowTagManager
 from luigiflow.types import TagValue, ParameterName
 
 _TReq = TypeVar("_TReq", bound=dict)
 _K = TypeVar("_K")
-_TT = TypeVar("_TT", bound=MlflowTaskProtocol)
+_TT = TypeVar("_TT", bound=DeprecatedTaskProtocol)
 
 
 class MlflowTaskMeta(Register, Generic[_TReq], type(Protocol)):  # type: ignore[misc]
@@ -69,7 +68,7 @@ class MlflowTaskMeta(Register, Generic[_TReq], type(Protocol)):  # type: ignore[
                 cls.requirements_required[key] = True
 
         cls.artifact_filenames = config.artifact_filenames
-        cls.tag_manager = MlflowTagManager(
+        cls.tag_manager = TaskTagm  (
             task_name=classname,
             params={
                 name: type(maybe_param)
@@ -117,7 +116,7 @@ class MlflowTaskMeta(Register, Generic[_TReq], type(Protocol)):  # type: ignore[
         return instance
 
 
-class MlflowTask(luigi.Task, MlflowTaskProtocol[_TReq], metaclass=MlflowTaskMeta):
+class DeprecatedTask(luigi.Task, DeprecatedTaskProtocol[_TReq], metaclass=MlflowTaskMeta):
     """
     This is a luigi's task aiming to save artifacts and/or metrics to an mllfow expriment.
     """
@@ -132,7 +131,7 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[_TReq], metaclass=MlflowTaskMeta
 
     @classmethod
     @final
-    def get_protocols(cls) -> list[type["MlflowTaskProtocol"]]:
+    def get_protocols(cls) -> list[type["DeprecatedTaskProtocol"]]:
         return cls.protocols
 
     @classmethod
@@ -153,7 +152,7 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[_TReq], metaclass=MlflowTaskMeta
 
     # just to note types
     def input(self) -> dict[str, dict[str, LocalTarget]]:
-        return super(MlflowTask, self).input()  # type: ignore[safe-super]
+        return super(DeprecatedTask, self).input()  # type: ignore[safe-super]
 
     @final
     def requires(self) -> _TReq:
@@ -263,63 +262,7 @@ class MlflowTask(luigi.Task, MlflowTaskProtocol[_TReq], metaclass=MlflowTaskMeta
         where `param_path` represents the relative path.
         """
 
-        def to_tags(task: MlflowTask) -> dict[str, MlflowTagValue]:
-            tags = task.to_mlflow_tags()
-            maybe_requirements: Optional[
-                dict[str, MlflowTaskProtocol]
-            ] = task.requires()
-            if maybe_requirements is None:
-                return tags
-            else:
-                if len(maybe_requirements) == 0:
-                    return tags
-            parent_tasks: dict[str, MlflowTask | TaskImplementationList] = {
-                key: val
-                for key, val in maybe_requirements.items()
-                if (
-                    isinstance(val, MlflowTask)
-                    or isinstance(val, TaskImplementationList)
-                )
-            }
-            for task_name, t in parent_tasks.items():
-                if isinstance(t, MlflowTask):
-                    parent_tags: dict[
-                        str, MlflowTagValue
-                    ] = t.to_mlflow_tags_w_parent_tags()
-                    if len(parent_tags) > 100:
-                        t_tags_w_prefix = {f"{task_name}_hash": parent_tags["_hash"]}
-                    else:
-                        t_tags_w_prefix = {
-                            f"{task_name}.{key}": val
-                            for key, val in parent_tags.items()
-                        }
-                elif isinstance(t, TaskImplementationList):
-                    if len(t) > 100:
-                        m = hashlib.md5()
-                        for task in t:
-                            task = cast(MlflowTask, task)
-                            hash_val = str(task.to_mlflow_tags_w_parent_tags()["_hash"])
-                            m.update(hash_val.encode("utf-8"))
-                        t_tags_w_prefix = {f"{task_name}_hash": m.hexdigest()}
-                    else:
-                        t_tags_w_prefix = dict()
-                        for i, task in enumerate(t):
-                            ctags = task.to_mlflow_tags_w_parent_tags()
-                            if len(ctags) > 100:
-                                t_tags_w_prefix = t_tags_w_prefix | {
-                                    f"{task_name}.{i}_hash": ctags["_hash"]
-                                }
-                            else:
-                                t_tags_w_prefix = t_tags_w_prefix | {
-                                    f"{task_name}.{i}.{key}": val
-                                    for key, val in ctags.items()
-                                }
-                else:
-                    raise AssertionError()
 
-                tags = dict(**tags, **t_tags_w_prefix)
-
-            return tags
 
         serialized_tags = to_tags(self)
         tags_sorted: list[tuple[str, str]] = sorted(list(serialized_tags.items()), key=itemgetter(0))  # type: ignore
@@ -427,6 +370,8 @@ class TaskImplementationList(
 
     def requires(self) -> list[_TT]:
         return self.implementations
+
+
 
     def run(self):
         # Do nothing (`self.requires()` will execute incomplete tasks)

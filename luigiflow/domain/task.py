@@ -25,7 +25,7 @@ _K = TypeVar("_K")
 
 
 @runtime_checkable
-class MlflowTaskProtocol(Protocol[_TReq]):
+class DeprecatedTaskProtocol(Protocol[_TReq]):
     """
     You can use this protocol to implement task protocols.
     Because a protocol class cannot inherit from non-protocol classes,
@@ -42,7 +42,7 @@ class MlflowTaskProtocol(Protocol[_TReq]):
         ...
 
     @classmethod
-    def get_protocols(cls) -> list[type["MlflowTaskProtocol"]]:
+    def get_protocols(cls) -> list[type["DeprecatedTaskProtocol"]]:
         ...
 
     @classmethod
@@ -107,8 +107,8 @@ class MlflowTaskProtocol(Protocol[_TReq]):
         ...
 
 
-_T = TypeVar("_T", bound=MlflowTaskProtocol)
-_V = TypeVar("_V", bound=type[MlflowTaskProtocol])
+_T = TypeVar("_T", bound=DeprecatedTaskProtocol)
+_V = TypeVar("_V", bound=type[DeprecatedTaskProtocol])
 _D = TypeVar("_D", bound=dict)
 
 
@@ -121,7 +121,7 @@ class OptionalTask(Generic[_V]):
     base_cls: type[_V]
 
     def __post_init__(self):
-        assert issubclass(self.base_cls, MlflowTaskProtocol)
+        assert issubclass(self.base_cls, DeprecatedTaskProtocol)
 
 
 @dataclass
@@ -138,11 +138,11 @@ class TaskList(Generic[_V]):
         ...  # Don't raise `NotImplementedError` because some pydantic methods may catch that exception.
 
 
-RequirementProtocol = Union[type[MlflowTaskProtocol], OptionalTask, TaskList]
+RequirementProtocol = Union[type[DeprecatedTaskProtocol], OptionalTask, TaskList]
 
 
 class TaskConfig(BaseModel, extra=Extra.forbid):
-    protocols: list[type[MlflowTaskProtocol]]
+    protocols: list[type[DeprecatedTaskProtocol]]
     requirements: dict[str, RequirementProtocol] = Field(default_factory=dict)
     artifact_filenames: dict[str, str] = Field(default_factory=dict)
     tags_to_exclude: set[str] = Field(default_factory=set)

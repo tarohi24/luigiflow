@@ -12,16 +12,16 @@ from luigiflow.infrastructure.luigi.custom_params import (
 )
 from luigiflow.domain.serializer import UnknownParameter
 from luigiflow.domain.tag_manager import TaskParameter
-from luigiflow.domain.task import MlflowTaskProtocol, TaskConfig
-from luigiflow.infrastructure.luigi.task import MlflowTask
+from luigiflow.domain.task import DeprecatedTaskProtocol, TaskConfig
+from luigiflow.infrastructure.luigi.task import DeprecatedTask
 from luigiflow.infrastructure.mlflow.collection import TaskCollectionImpl
 
 
-class TaskProtocol(MlflowTaskProtocol):
+class TaskProtocol(DeprecatedTaskProtocol):
     ...
 
 
-class TaskA(MlflowTask):
+class TaskA(DeprecatedTask):
     date_param: datetime.date = luigi.DateParameter(default=datetime.date(2021, 10, 11))
     config = TaskConfig(
         protocols=[
@@ -35,7 +35,7 @@ class BRequirements(TypedDict):
     a: TaskProtocol
 
 
-class TaskB(MlflowTask[BRequirements]):
+class TaskB(DeprecatedTask[BRequirements]):
     date_param: datetime.date = luigi.DateParameter()
     config = TaskConfig(
         protocols=[
@@ -59,7 +59,7 @@ def test_serialize_date_param():
             [
                 TaskA,
             ]
-        ).generate_task_tree(task_params, TaskProtocol),
+        ).generate_task_tree(task_params, DeprecatedTaskProtocol),
     )
     assert task.date_param == datetime.date(2021, 10, 11)
     # test with a custom param
@@ -70,7 +70,7 @@ def test_serialize_date_param():
             [
                 TaskA,
             ]
-        ).generate_task_tree(task_params, TaskProtocol),
+        ).generate_task_tree(task_params, DeprecatedTaskProtocol),
     )
     assert task.date_param == datetime.date(2021, 12, 12)
     # test with an invalid param
@@ -80,26 +80,26 @@ def test_serialize_date_param():
             [
                 TaskA,
             ]
-        ).generate_task_tree(task_params, TaskProtocol)
+        ).generate_task_tree(task_params, DeprecatedTaskProtocol)
 
 
 def test_inconsistent_param_name():
     with pytest.raises(UnknownParameter):
         TaskCollectionImpl([TaskA,]).generate_task_tree(
             task_params={"cls": "TaskA", "params": {"unknown": "hi"}},
-            protocol=TaskProtocol,
+            protocol=DeprecatedTaskProtocol,
         )
 
 
 def test_optional_param():
-    class Task(MlflowTask):
+    class Task(Task):
         maybe_value: Optional[int] = OptionalIntParameter()
         maybe_float: Optional[float] = OptionalFloatParameter()
         maybe_str: Optional[str] = OptionalStrParameter()
         maybe_date: Optional[datetime.date] = OptionalDateParameter()
         maybe_value_default_none: Optional[int] = OptionalIntParameter(default=None)
         config = TaskConfig(
-            protocols=[TaskProtocol],
+            protocols=[DeprecatedTaskProtocol],
         )
 
     config = {
@@ -113,7 +113,7 @@ def test_optional_param():
     }
     task: Task = TaskCollectionImpl([Task]).generate_task_tree(  # type: ignore
         task_params=config,
-        protocol=TaskProtocol,
+        protocol=DeprecatedTaskProtocol,
     )
     assert task.maybe_value is None
     assert task.maybe_str is None
@@ -141,7 +141,7 @@ def test_optional_param():
     }
     task: Task = TaskCollectionImpl([Task]).generate_task_tree(  # type: ignore
         task_params=config,
-        protocol=TaskProtocol,
+        protocol=DeprecatedTaskProtocol,
     )
     assert task.maybe_value == 1
     assert task.maybe_str == "hi"

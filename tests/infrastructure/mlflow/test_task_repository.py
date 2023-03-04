@@ -10,29 +10,29 @@ from luigiflow.domain.collection import (
     ProtocolNotRegistered,
     TaskWithTheSameNameAlreadyRegistered,
 )
-from luigiflow.domain.task import MlflowTaskProtocol, OptionalTask, TaskConfig, TaskList
-from luigiflow.infrastructure.luigi.task import MlflowTask
+from luigiflow.domain.task import DeprecatedTaskProtocol, OptionalTask, TaskConfig, TaskList
+from luigiflow.infrastructure.luigi.task import DeprecatedTask
 from luigiflow.infrastructure.mlflow.collection import TaskCollectionImpl
 from luigiflow.infrastructure.mlflow.task_run import MlflowTaskRunRepository
 from luigiflow.utils.savers import save_json
 
 
 @runtime_checkable
-class AProtocol(MlflowTaskProtocol, Protocol):
+class AProtocolDeprecated(DeprecatedTaskProtocol, Protocol):
     def do_nothing(self):
         raise NotImplementedError()
 
 
 @runtime_checkable
-class AnotherProtocol(MlflowTaskProtocol, Protocol):
+class AnotherProtocolDeprecated(DeprecatedTaskProtocol, Protocol):
     def method_a(self):
         raise NotImplementedError()
 
 
-class DoNothingImpl(MlflowTask):
+class DoNothingImpl(DeprecatedTask):
     config = TaskConfig(
         protocols=[
-            AProtocol,
+            AProtocolDeprecated,
         ],
         requirements=dict(),
     )
@@ -44,14 +44,14 @@ class DoNothingImpl(MlflowTask):
         ...
 
 
-class NewTask(MlflowTask):
+class NewTask(DeprecatedTask):
     param: str = luigi.Parameter()
     config = TaskConfig(
         protocols=[
-            AnotherProtocol,
+            AnotherProtocolDeprecated,
         ],
         requirements={
-            "1": AProtocol,
+            "1": AProtocolDeprecated,
         },
     )
 
@@ -73,16 +73,16 @@ def test_duplicated_tasks():
 
 
 def test_unknown_protocol():
-    class UnknownProtocol(MlflowTaskProtocol):
+    class UnknownProtocolDeprecated(DeprecatedTaskProtocol):
         ...
 
-    class TaskHavingUnknownProtocol(MlflowTask):
+    class TaskHavingUnknownProtocol(DeprecatedTask):
         config = TaskConfig(
             protocols=[
-                AProtocol,
+                AProtocolDeprecated,
             ],
             requirements={
-                "unknown": UnknownProtocol,
+                "unknown": UnknownProtocolDeprecated,
             },
         )
 
@@ -108,33 +108,33 @@ def test_unknown_protocol():
 
 
 def test_recursively_nested_task(artifacts_server):
-    class TaskA(MlflowTask):
+    class TaskA(DeprecatedTask):
         param: str = luigi.Parameter()
         config = TaskConfig(
             protocols=[
-                AProtocol,
+                AProtocolDeprecated,
             ],
             requirements={
-                "req": AProtocol,
+                "req": AProtocolDeprecated,
             },
             artifact_filenames=dict(),
         )
 
-    class TaskB(MlflowTask):
+    class TaskB(DeprecatedTask):
         config = TaskConfig(
             protocols=[
-                AProtocol,
+                AProtocolDeprecated,
             ],
             requirements={
-                "req": AProtocol,
+                "req": AProtocolDeprecated,
             },
             artifact_filenames=dict(),
         )
 
-    class TaskC(MlflowTask):
+    class TaskC(DeprecatedTask):
         config = TaskConfig(
             protocols=[
-                AProtocol,
+                AProtocolDeprecated,
             ],
             requirements=dict(),
             artifact_filenames=dict(),
@@ -147,7 +147,7 @@ def test_recursively_nested_task(artifacts_server):
             TaskC,
         ],
     )
-    task: MlflowTask = repo.generate_task_tree(
+    task: DeprecatedTask = repo.generate_task_tree(
         task_params={
             "cls": "TaskA",
             "params": {
@@ -184,11 +184,11 @@ def test_recursively_nested_task(artifacts_server):
 
 
 def test_too_many_tags(artifacts_server, tmpdir):
-    class DoSomething(MlflowTask):
+    class DoSomething(DeprecatedTask):
         value: str = luigi.IntParameter(default=1)
         config = TaskConfig(
             protocols=[
-                AProtocol,
+                AProtocolDeprecated,
             ],
             requirements=dict(),
             artifact_filenames=dict(
@@ -242,17 +242,17 @@ def test_too_many_tags(artifacts_server, tmpdir):
     "maybe_task, config, is_ok",
     [
         (
-            AProtocol,
-            {
+                AProtocolDeprecated,
+                {
                 "cls": "TaskB",
                 "requires": {
                     "maybe_task": None,
                 },
             },
-            False,
+                False,
         ),
         (
-            OptionalTask(base_cls=AProtocol),
+            OptionalTask(base_cls=AProtocolDeprecated),
             {
                 "cls": "TaskB",
                 "requires": {
@@ -262,8 +262,8 @@ def test_too_many_tags(artifacts_server, tmpdir):
             True,
         ),
         (
-            AProtocol,
-            {
+                AProtocolDeprecated,
+                {
                 "cls": "TaskB",
                 "requires": {
                     "maybe_task": {
@@ -271,10 +271,10 @@ def test_too_many_tags(artifacts_server, tmpdir):
                     },
                 },
             },
-            True,
+                True,
         ),
         (
-            OptionalTask(base_cls=AProtocol),
+            OptionalTask(base_cls=AProtocolDeprecated),
             {
                 "cls": "TaskB",
                 "requires": {
@@ -289,11 +289,11 @@ def test_too_many_tags(artifacts_server, tmpdir):
 )
 def test_allow_null_requirements(artifacts_server, tmpdir, maybe_task, config, is_ok):
     class Requirements(TypedDict):
-        maybe_task: Optional[AProtocol]
+        maybe_task: Optional[AProtocolDeprecated]
 
-    class TaskA(MlflowTask):
+    class TaskA(DeprecatedTask):
         config = TaskConfig(
-            protocols=[AProtocol],
+            protocols=[AProtocolDeprecated],
             requirements=dict(),
             artifact_filenames={
                 "hi": "hi.json",
@@ -307,9 +307,9 @@ def test_allow_null_requirements(artifacts_server, tmpdir, maybe_task, config, i
                 }
             )
 
-    class TaskB(MlflowTask[Requirements]):
+    class TaskB(DeprecatedTask[Requirements]):
         config = TaskConfig(
-            protocols=[AnotherProtocol],
+            protocols=[AnotherProtocolDeprecated],
             requirements={  # type: ignore
                 "maybe_task": maybe_task,
             },
@@ -359,14 +359,14 @@ def test_allow_null_requirements(artifacts_server, tmpdir, maybe_task, config, i
 
 
 def test_list_requirements(artifacts_server, tmpdir):
-    class GetTextProtocol(MlflowTaskProtocol, Protocol):
+    class GetTextProtocolDeprecated(DeprecatedTaskProtocol, Protocol):
         def load_text(self) -> str:
             raise NotImplementedError
 
-    class TaskA(MlflowTask):
+    class TaskA(DeprecatedTask):
         value: int = luigi.IntParameter()
         config = TaskConfig(
-            protocols=[GetTextProtocol],
+            protocols=[GetTextProtocolDeprecated],
             requirements=dict(),
         )
 
@@ -376,10 +376,10 @@ def test_list_requirements(artifacts_server, tmpdir):
         def load_text(self) -> str:
             return str(self.value)
 
-    class TaskC(MlflowTask):
+    class TaskC(DeprecatedTask):
         value: int = luigi.IntParameter()
         config = TaskConfig(
-            protocols=[AnotherProtocol],
+            protocols=[AnotherProtocolDeprecated],
             requirements=dict(),
         )
 
@@ -389,16 +389,16 @@ def test_list_requirements(artifacts_server, tmpdir):
     class TaskBRequirements(TypedDict):
         a: TaskList
         a_a: TaskList
-        c: AnotherProtocol
+        c: AnotherProtocolDeprecated
 
-    class TaskB(MlflowTask[TaskBRequirements]):
+    class TaskB(DeprecatedTask[TaskBRequirements]):
         text: str = luigi.Parameter()
         config = TaskConfig(
-            protocols=[AnotherProtocol],
+            protocols=[AnotherProtocolDeprecated],
             requirements={
-                "a": TaskList(GetTextProtocol),
-                "a_a": TaskList(GetTextProtocol),  # test if "a" is not overrode
-                "c": AnotherProtocol,
+                "a": TaskList(GetTextProtocolDeprecated),
+                "a_a": TaskList(GetTextProtocolDeprecated),  # test if "a" is not overrode
+                "c": AnotherProtocolDeprecated,
             },
             artifact_filenames={
                 "data": "data.json",
@@ -406,8 +406,8 @@ def test_list_requirements(artifacts_server, tmpdir):
         )
 
         def _run(self) -> NoReturn:
-            out: list[str] = self.requires()["a"].apply(GetTextProtocol.load_text)
-            aa_out = self.requires()["a_a"].apply(GetTextProtocol.load_text)
+            out: list[str] = self.requires()["a"].apply(GetTextProtocolDeprecated.load_text)
+            aa_out = self.requires()["a_a"].apply(GetTextProtocolDeprecated.load_text)
             self.save_to_mlflow(
                 artifacts_and_save_funcs={
                     "data": ([{"values": out}, {"values_aa": aa_out}], save_json),

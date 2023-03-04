@@ -7,18 +7,18 @@ from luigiflow.domain.collection import (
 )
 from luigiflow.domain.serializer import deserialize_params
 from luigiflow.domain.tag_manager import TaskParameter
-from luigiflow.domain.task import MlflowTaskProtocol, TaskList
-from luigiflow.infrastructure.luigi.task import MlflowTask, TaskImplementationList
+from luigiflow.domain.task import DeprecatedTaskProtocol, TaskList
+from luigiflow.infrastructure.luigi.task import DeprecatedTask, TaskImplementationList
 
 
 @dataclass
 class ProtocolCollectionItem:
-    protocol_type: type[MlflowTaskProtocol]
-    _task_class_dict: dict[str, type[MlflowTask]] = field(
+    protocol_type: type[DeprecatedTaskProtocol]
+    _task_class_dict: dict[str, type[DeprecatedTask]] = field(
         init=False, default_factory=dict
     )
 
-    def register(self, task_class: type[MlflowTask]):
+    def register(self, task_class: type[DeprecatedTask]):
         key = task_class.__name__
         if key in self._task_class_dict:
             raise TaskWithTheSameNameAlreadyRegistered(
@@ -26,7 +26,7 @@ class ProtocolCollectionItem:
             )
         self._task_class_dict[key] = task_class
 
-    def get(self, task_name: str) -> type[MlflowTask]:
+    def get(self, task_name: str) -> type[DeprecatedTask]:
         return self._task_class_dict[task_name]
 
 
@@ -40,7 +40,7 @@ class TaskCollectionImpl:
 
     def __init__(
         self,
-        task_classes: list[type[MlflowTask]],
+        task_classes: list[type[DeprecatedTask]],
     ):
         # use for loop to check if there are duplicated names
         self._protocols = dict()
@@ -57,8 +57,8 @@ class TaskCollectionImpl:
     def generate_task_tree(
         self,
         task_params: TaskParameter,
-        protocol: Optional[Union[str, type[MlflowTaskProtocol]]] = None,
-    ) -> MlflowTask:
+        protocol: Optional[Union[str, type[DeprecatedTaskProtocol]]] = None,
+    ) -> DeprecatedTask:
         if protocol is None:
             task_name: str = task_params["cls"]
             for repo_item in self._protocols.values():
@@ -78,18 +78,18 @@ class TaskCollectionImpl:
             protocol_item = self._protocols[protocol_name]
         except KeyError:
             raise ProtocolNotRegistered(f"Unknown protocol: {protocol_name}")
-        task_cls: type[MlflowTask] = protocol_item.get(cls_name)
+        task_cls: type[DeprecatedTask] = protocol_item.get(cls_name)
         task_kwargs = deserialize_params(
             params=task_params.get("params", dict()),  # allow empty params
             param_types=task_cls.tag_manager.params,
         )
         # resolve requirements
         requirements: dict[
-            str, type[MlflowTaskProtocol] | TaskList
+            str, type[DeprecatedTaskProtocol] | TaskList
         ] = task_cls.requirements
         requirements_required: dict[str, bool] = task_cls.requirements_required
         requirements_impl: dict[
-            str, Union[MlflowTask, TaskImplementationList, None]
+            str, Union[DeprecatedTask, TaskImplementationList, None]
         ] = dict()
         if len(requirements) == 0:
             if (req := task_params.get("requires", None)) is not None:
@@ -104,7 +104,7 @@ class TaskCollectionImpl:
                     requirements_impl[key] = None
                 elif isinstance(maybe_task_param, list):
                     assert isinstance(task_type, TaskList)
-                    impls: list[MlflowTask] = []
+                    impls: list[DeprecatedTask] = []
                     for param in cast(list[TaskParameter], maybe_task_param):
                         req = self.generate_task_tree(
                             param,
@@ -115,7 +115,7 @@ class TaskCollectionImpl:
                 else:
                     assert isinstance(maybe_task_param, dict)
                     assert isinstance(task_type, type)
-                    req_task_cls: MlflowTask = self.generate_task_tree(
+                    req_task_cls: DeprecatedTask = self.generate_task_tree(
                         cast(TaskParameter, maybe_task_param),
                         protocol=task_type.__name__,
                     )

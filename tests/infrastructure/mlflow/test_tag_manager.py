@@ -4,16 +4,16 @@ from typing import cast
 import luigi
 import pytest
 
-from luigiflow.domain.task import MlflowTaskProtocol, TaskConfig
-from luigiflow.infrastructure.luigi.task import MlflowTask
+from luigiflow.domain.task import DeprecatedTaskProtocol, TaskConfig
+from luigiflow.infrastructure.luigi.task import DeprecatedTask
 from luigiflow.infrastructure.mlflow.collection import TaskCollectionImpl
 
 
-class DummyProtocol(MlflowTaskProtocol):
+class DummyProtocolDeprecated(DeprecatedTaskProtocol):
     ...
 
 
-class Task(MlflowTask):
+class Task(DeprecatedTask):
     param_int: int = luigi.IntParameter(default=10)
     param_str: str = luigi.Parameter(default="hi")
     param_bool: str = luigi.BoolParameter(default=True)
@@ -21,18 +21,18 @@ class Task(MlflowTask):
     param_large_value: float = luigi.FloatParameter(default=2e11)
     config = TaskConfig(
         protocols=[
-            DummyProtocol,
+            DummyProtocolDeprecated,
         ],
         requirements=dict(),
         tags_to_exclude={"param_int", "param_date", "param_large_value"},
     )
 
 
-class AnotherTask(MlflowTask):
+class AnotherTask(Task):
     strange_param = luigi.Parameter(default=Task)  # invalid value
     config = TaskConfig(
         protocols=[
-            DummyProtocol,
+            DummyProtocolDeprecated,
         ],
         requirements=dict(),
         artifact_filenames=dict(),
@@ -45,7 +45,7 @@ class AnotherTask(MlflowTask):
 class TestToTags:
     @pytest.fixture()
     def task(self) -> Task:
-        repo = TaskCollectionImpl([Task])
+        repo = TaskCollectionImpl([DeprecatedTask])
         task = repo.generate_task_tree(
             task_params={
                 "cls": "Task",
@@ -53,7 +53,7 @@ class TestToTags:
             },
             protocol="DummyProtocol",
         )
-        return cast(Task, task)
+        return cast(DeprecatedTask, task)
 
     def test_simply_to_tags(self, task):
         actual = task.to_mlflow_tags()
@@ -79,7 +79,7 @@ class TestToTags:
         assert actual == expected
 
     def test_invalid_param_type(self):
-        repo = TaskCollectionImpl([Task])
+        repo = TaskCollectionImpl([DeprecatedTask])
         repo._protocols["DummyProtocol"].register(AnotherTask)
         task = repo.generate_task_tree(
             task_params={

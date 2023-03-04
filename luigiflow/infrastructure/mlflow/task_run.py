@@ -16,7 +16,7 @@ from luigiflow.domain.task_run import (
     TaskRun,
     TaskRunRepository,
 )
-from luigiflow.infrastructure.luigi.task import MlflowTask
+from luigiflow.infrastructure.luigi.task import DeprecatedTask
 from luigiflow.types import RunReturn, TagKey, TagValue, TaskClassName
 
 
@@ -81,7 +81,7 @@ class MlflowTaskRunRepository(TaskRunRepository):
 
     def save_run(
         self,
-        task: MlflowTask,
+        task: DeprecatedTask,
         artifacts_and_save_funcs: Optional[
             dict[str, Union[Callable[[str], None], tuple[K, Callable[[K, str], None]]]]
         ] = None,

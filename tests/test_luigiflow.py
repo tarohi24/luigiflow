@@ -8,15 +8,15 @@ import pytest
 from luigi import LuigiStatusCode
 
 from luigiflow.config import RunnerConfig
-from luigiflow.domain.task import MlflowTaskProtocol, TaskConfig
-from luigiflow.infrastructure.luigi.task import MlflowTask
+from luigiflow.domain.task import DeprecatedTaskProtocol, TaskConfig
+from luigiflow.infrastructure.luigi.task import DeprecatedTask
 from luigiflow.infrastructure.mlflow.collection import TaskCollectionImpl
 from luigiflow.infrastructure.mlflow.task_run import MlflowTaskRunRepository
 from luigiflow.utils.savers import save_dataframe
 
 
 @runtime_checkable
-class SaveCsv(MlflowTaskProtocol, Protocol):
+class SaveCsv(DeprecatedTaskProtocol, Protocol):
     def save_csv(self, path: Path):
         raise NotImplementedError()
 
@@ -25,12 +25,12 @@ class SaveCsv(MlflowTaskProtocol, Protocol):
 
 
 @runtime_checkable
-class SaveJson(MlflowTaskProtocol, Protocol):
+class SaveJson(DeprecatedTaskProtocol, Protocol):
     def save_json(self, path: Path):
         raise NotImplementedError()
 
 
-class TaskA(MlflowTask):
+class TaskA(DeprecatedTask):
     value: float = luigi.FloatParameter()
 
     config = TaskConfig(
@@ -62,7 +62,7 @@ class Requirements(TypedDict):
     a: SaveCsv
 
 
-class TaskB(MlflowTask[Requirements]):
+class TaskB(DeprecatedTask[Requirements]):
     date_start: datetime.date = luigi.DateParameter()
     int_value: int = luigi.IntParameter()
     message: str = luigi.Parameter()
@@ -152,5 +152,5 @@ def test_dry_run(runner, sample_task_param_path):
         config_jsonnet_path=sample_task_param_path,
         dry_run=True,
     )
-    assert isinstance(task, MlflowTask)
+    assert isinstance(task, DeprecatedTask)
     assert res is None
