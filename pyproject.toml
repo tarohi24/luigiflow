@@ -15,8 +15,6 @@ jsonnet = "^0"
 registrable = "^0.0.4"
 pydantic = "^1"
 typing-extensions = "^4"
-llvmlite="^0"  # need to specify a version
-numba="^0.56"
 
 [tool.poetry.dev-dependencies]
 pytest = "*"
